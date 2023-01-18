@@ -93,6 +93,8 @@ class Parameter:
         Parameter scaling to use for the scan.
     is_norm : bool
         Whether the parameter represents the flux norm of the model.
+    is_penalised : bool
+        Whether the parameter gets penalised in the Likelihood.
     """
 
     def __init__(
@@ -113,6 +115,7 @@ class Parameter:
         scale_method="scale10",
         interp="lin",
         is_norm=False,
+        is_penalised=False,
     ):
         if not isinstance(name, str):
             raise TypeError(f"Name must be string, got '{type(name)}' instead")
@@ -125,6 +128,7 @@ class Parameter:
         self.frozen = frozen
         self._error = error
         self._is_norm = is_norm
+        self._is_penalised = is_penalised
         self._type = None
 
         # TODO: move this to a setter method that can be called from `__set__` also!
@@ -168,6 +172,11 @@ class Parameter:
     def is_norm(self):
         """Whether the parameter represents the norm of the model"""
         return self._is_norm
+
+    @property
+    def is_penalised(self):
+        """Whether the parameter gets penalised"""
+        return self._is_penalised
 
     @property
     def type(self):
@@ -396,7 +405,8 @@ class Parameter:
         return (
             f"{self.__class__.__name__}(name={self.name!r}, value={self.value!r}, "
             f"factor={self.factor!r}, scale={self.scale!r}, unit={self.unit!r}, "
-            f"min={self.min!r}, max={self.max!r}, frozen={self.frozen!r}, id={hex(id(self))})"
+            f"min={self.min!r}, max={self.max!r}, frozen={self.frozen!r}, id={hex(id(self))}, "
+            f"is_penalised={self.is_penalised!r})"
         )
 
     def copy(self):
@@ -423,6 +433,7 @@ class Parameter:
             "interp": self.interp,
             "scale_method": self.scale_method,
             "is_norm": self.is_norm,
+            "is_penalised": self.is_penalised,
         }
 
         if self._link_label_io is not None:
@@ -550,6 +561,11 @@ class Parameters(collections.abc.Sequence):
     def free_parameters(self):
         """List of free parameters"""
         return self.__class__([par for par in self._parameters if not par.frozen])
+
+    @property
+    def penalised_parameters(self):
+        """List of free parameters"""
+        return self.__class__([par for par in self._parameters if par.is_penalised])
 
     @property
     def unique_parameters(self):

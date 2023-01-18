@@ -1,0 +1,14 @@
+components:
+-   name: skymodel
+    type: SkyModel
+    spectral:
+        type: DarkMatterAnnihilationSpectralModel
+        parameters:
+        -   name: scale
+            value: 1.0
+        channel: b
+        mass: 5.0 TeV
+        jfactor: 3.41e+19 GeV2 / cm5
+        z: 0
+        k: 2
+covariance: tmp_covariance.dat

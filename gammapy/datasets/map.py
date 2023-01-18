@@ -15,6 +15,7 @@ from gammapy.stats import (
     WStatCountsStatistic,
     cash,
     cash_sum_cython,
+    gaussian_penality,
     get_wstat_mu_bkg,
     wstat,
 )
@@ -234,6 +235,7 @@ class MapDataset(Dataset):
         self.gti = gti
         self.models = models
         self.meta_table = meta_table
+        self._penalising_invcovmatrix = None
 
     # TODO: keep or remove?
     @property
@@ -814,9 +816,40 @@ class MapDataset(Dataset):
         elif other.meta_table:
             self.meta_table = other.meta_table.copy()
 
+    @property
+    def penalising_invcovmatrix(self):
+        """I'm the _penalising_invcovmatrix property."""
+        return self._penalising_invcovmatrix
+
+    @penalising_invcovmatrix.setter
+    def penalising_invcovmatrix(self, value):
+        self._penalising_invcovmatrix = value
+
     def stat_array(self):
         """Likelihood per bin given the current model parameters"""
         return cash(n_on=self.counts.data, mu_on=self.npred().data)
+
+    def stat_sum(self):
+        """Total likelihood given the current model parameters."""
+        counts, npred = self.counts.data.astype(float), self.npred().data
+        if (
+            len(self.models.parameters.penalised_parameters) > 0
+            and self.penalising_invcovmatrix is not None
+        ):
+            penalty = gaussian_penality(
+                self.models.parameters.penalised_parameters,
+                self._penalising_invcovmatrix,
+            )
+        else:
+            penalty = 0
+        print("penality", penalty, self.models.parameters.penalised_parameters.value)
+
+        if self.mask is not None:
+            return (
+                cash_sum_cython(counts[self.mask.data], npred[self.mask.data]) + penalty
+            )
+        else:
+            return cash_sum_cython(counts.ravel(), npred.ravel()) + penalty
 
     def residuals(self, method="diff", **kwargs):
         """Compute residuals map.
@@ -1078,15 +1111,6 @@ class MapDataset(Dataset):
             pix_region.plot(ax=ax_spatial)
 
         return ax_spatial, ax_spectral
-
-    def stat_sum(self):
-        """Total likelihood given the current model parameters."""
-        counts, npred = self.counts.data.astype(float), self.npred().data
-
-        if self.mask is not None:
-            return cash_sum_cython(counts[self.mask.data], npred[self.mask.data])
-        else:
-            return cash_sum_cython(counts.ravel(), npred.ravel())
 
     def fake(self, random_state="random-seed"):
         """Simulate fake counts for the current model and reduced IRFs.
