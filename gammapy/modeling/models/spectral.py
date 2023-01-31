@@ -2270,6 +2270,39 @@ class TemplateNDSpectralModel(SpectralModel):
         return data
 
 
+class ScaleNuisanceSpectralModel(SpectralModel):
+    """Wrapper to scale another spectral model by a norm factor.
+
+    Parameters
+    ----------
+    model : `SpectralModel`
+        Spectral model to wrap.
+    norm : float
+        Multiplicative norm factor for the model value.
+    """
+
+    tag = ["ScaleSpectralModel", "scale"]
+    norm = Parameter("norm", 1, unit="", interp="log", is_norm=True)
+    norm_nuisance = Parameter(
+        "norm_nuisance", 0, unit="", interp="lin", is_norm=False, is_penalised=True
+    )
+
+    def __init__(self, model, norm=norm.quantity, norm_nuisance=norm_nuisance.quantity):
+        self.model = model
+        self._covariance = None
+        super().__init__(norm=norm)
+
+    def evaluate(self, energy, norm, norm_nuisance):
+        return (1 + norm_nuisance) * norm * self.model(energy)
+
+    def integral(self, energy_min, energy_max, **kwargs):
+        return (
+            (1 + self.norm_nuisance.value)
+            * self.norm.value
+            * self.model.integral(energy_min, energy_max, **kwargs)
+        )
+
+
 class ScaleSpectralModel(SpectralModel):
     """Wrapper to scale another spectral model by a norm factor.
 

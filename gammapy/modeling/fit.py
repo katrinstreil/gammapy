@@ -169,12 +169,12 @@ class Fit:
 
         covariance_result = self.covariance(datasets=datasets)
 
-        print(optimize_result.models)
+        # print(optimize_result.models)
 
         optimize_result.models.covariance = Covariance(
             optimize_result.models.parameters, covariance_result.matrix
         )
-        print(optimize_result.models)
+        # print(optimize_result.models)
 
         return FitResult(
             optimize_result=optimize_result,
@@ -260,8 +260,8 @@ class Fit:
         """
         datasets, unique_pars = self._parse_datasets(datasets=datasets)
         parameters = datasets.models.parameters
-        print("unique_pars", unique_pars.names)
-        print("parameters", parameters.names)
+        # print("unique_pars", unique_pars.names)
+        # print("parameters", parameters.names)
 
         kwargs = self.covariance_opts.copy()
         kwargs["minuit"] = self.minuit

@@ -205,6 +205,7 @@ class MapDataset(Dataset):
         gti=None,
         meta_table=None,
         name=None,
+        _penalising_invcovmatrix=None,
     ):
         self._name = make_name(name)
         self._evaluators = {}
@@ -235,7 +236,7 @@ class MapDataset(Dataset):
         self.gti = gti
         self.models = models
         self.meta_table = meta_table
-        self._penalising_invcovmatrix = None
+        self._penalising_invcovmatrix = _penalising_invcovmatrix
 
     # TODO: keep or remove?
     @property
@@ -842,7 +843,7 @@ class MapDataset(Dataset):
             )
         else:
             penalty = 0
-        print("penality", penalty, self.models.parameters.penalised_parameters.value)
+        # print("penality", penalty, self.models.parameters.penalised_parameters.value)
 
         if self.mask is not None:
             return (
@@ -1807,6 +1808,9 @@ class MapDataset(Dataset):
 
         if self.mask_fit is not None:
             kwargs["mask_fit"] = self.mask_fit.slice_by_idx(slices=slices)
+
+        if self.penalising_invcovmatrix is not None:
+            kwargs["_penalising_invcovmatrix"] = self.penalising_invcovmatrix
 
         return self.__class__(**kwargs)
 

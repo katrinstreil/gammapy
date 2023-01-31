@@ -311,9 +311,16 @@ class ParameterEstimator(Estimator):
             if not self.reoptimize:
                 datasets.parameters.freeze_all()
                 parameter.frozen = False
+            for p in datasets.parameters.penalised_parameters:
+                p.frozen = False
 
             result = self.estimate_best_fit(datasets, parameter)
+            for p in datasets.parameters.free_parameters:
+                print(p.name, p.value, p.error)
             result.update(self.estimate_ts(datasets, parameter))
+            for p in datasets.parameters.penalised_parameters:
+                p.frozen = True
+                print("freeze for error")
 
             if "errn-errp" in self.selection_optional:
                 result.update(self.estimate_errn_errp(datasets, parameter))
