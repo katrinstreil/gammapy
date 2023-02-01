@@ -709,18 +709,18 @@ class PowerLawNuisanceESpectralModel(SpectralModel):
         is_norm=True,
     )
     reference = Parameter("reference", "1 TeV", frozen=True)
-    reference_nuisance = Parameter("reference_nuisance", "0", is_penalised=True)
+    energy_nuisance = Parameter("energy_nuisance", "0", is_penalised=True)
 
     @staticmethod
-    def evaluate(energy, index, amplitude, reference, reference_nuisance):
+    def evaluate(energy, index, amplitude, reference, energy_nuisance):
         """Evaluate the model (static function)."""
         return amplitude * np.power(
-            (energy / (reference * (1 + reference_nuisance))), -index
+            (energy * (1 + energy_nuisance) / reference), -index
         )
 
     @staticmethod
     def evaluate_integral(
-        energy_min, energy_max, index, amplitude, reference, reference_nuisance
+        energy_min, energy_max, index, amplitude, reference, energy_nuisance
     ):
         r"""Integrate power law analytically (static function).
 
@@ -736,9 +736,9 @@ class PowerLawNuisanceESpectralModel(SpectralModel):
         """
         val = -1 * index + 1
 
-        prefactor = amplitude * (reference * (1 + reference_nuisance)) / val
-        upper = np.power((energy_max / (reference * (1 + reference_nuisance))), val)
-        lower = np.power((energy_min / (reference * (1 + reference_nuisance))), val)
+        prefactor = amplitude * reference / val
+        upper = np.power((energy_max * (1 + energy_nuisance) / reference), val)
+        lower = np.power((energy_min * (1 + energy_nuisance) / reference), val)
         integral = prefactor * (upper - lower)
 
         mask = np.isclose(val, 0)
@@ -746,15 +746,20 @@ class PowerLawNuisanceESpectralModel(SpectralModel):
         if mask.any():
             integral[mask] = (
                 amplitude
-                * (reference * (1 + reference_nuisance))
-                * np.log(energy_max / energy_min)
+                * reference
+                * np.log(
+                    energy_max
+                    * (1 + energy_nuisance)
+                    / energy_min
+                    * (1 + energy_nuisance)
+                )
             )[mask]
 
         return integral
 
     @staticmethod
     def evaluate_energy_flux(
-        energy_min, energy_max, index, amplitude, reference, reference_nuisance
+        energy_min, energy_max, index, amplitude, reference, energy_nuisance
     ):
         r"""Compute energy flux in given energy range analytically (static function).
 
@@ -770,9 +775,9 @@ class PowerLawNuisanceESpectralModel(SpectralModel):
         """
         val = -1 * index + 2
 
-        prefactor = amplitude * (reference * (1 + reference_nuisance)) ** 2 / val
-        upper = (energy_max / (reference * (1 + reference_nuisance))) ** val
-        lower = (energy_min / (reference * (1 + reference_nuisance))) ** val
+        prefactor = amplitude * reference**2 / val
+        upper = (energy_max * (1 + energy_nuisance) / reference) ** val
+        lower = (energy_min * (1 + energy_nuisance) / reference) ** val
         energy_flux = prefactor * (upper - lower)
 
         mask = np.isclose(val, 0)
@@ -782,8 +787,13 @@ class PowerLawNuisanceESpectralModel(SpectralModel):
             # for reference
             energy_flux[mask] = (
                 amplitude
-                * (reference * (1 + reference_nuisance)) ** 2
-                * np.log(energy_max / energy_min)[mask]
+                * reference**2
+                * np.log(
+                    energy_max
+                    * (1 + energy_nuisance)
+                    / energy_min
+                    * (1 + energy_nuisance)
+                )[mask]
             )
 
         return energy_flux
@@ -797,11 +807,7 @@ class PowerLawNuisanceESpectralModel(SpectralModel):
             Function value of the spectral model.
         """
         base = value / self.amplitude.quantity
-        return (
-            self.reference.quantity
-            * (1 + self.reference_nuisance.quantity)
-            * np.power(base, -1.0 / self.index.value)
-        )
+        return self.reference.quantity * np.power(base, -1.0 / self.index.value)
 
     @property
     def pivot_energy(self):
@@ -819,7 +825,7 @@ class PowerLawNuisanceESpectralModel(SpectralModel):
         cov_index_ampl = self.covariance.data[0, 1] * amplitude.unit
         return (
             reference
-            * (1 + self.reference_nuisance)
+            * (1 + self.energy_nuisance)
             * np.exp(cov_index_ampl / (amplitude * index_err**2))
         )
 
@@ -845,6 +851,7 @@ class PowerLawNuisanceSpectralModel(SpectralModel):
 
     tag = ["PowerLawSpectralModel", "pl"]
     index = Parameter("index", 2.0)
+    index_nuisance = Parameter("index_nuisance", 0, is_penalised=True)
     amplitude = Parameter(
         "amplitude",
         "1e-12 cm-2 s-1 TeV-1",
@@ -856,17 +863,25 @@ class PowerLawNuisanceSpectralModel(SpectralModel):
     reference = Parameter("reference", "1 TeV", frozen=True)
 
     @staticmethod
-    def evaluate(energy, index, amplitude, amplitude_nuisance, reference):
+    def evaluate(
+        energy, index, index_nuisance, amplitude, amplitude_nuisance, reference
+    ):
         """Evaluate the model (static function)."""
         return (
             (1 + amplitude_nuisance)
             * amplitude
-            * np.power((energy / reference), -index)
+            * np.power((energy / reference), -((1 + index_nuisance) * index))
         )
 
     @staticmethod
     def evaluate_integral(
-        energy_min, energy_max, index, amplitude, amplitude_nuisance, reference
+        energy_min,
+        energy_max,
+        index,
+        index_nuisance,
+        amplitude,
+        amplitude_nuisance,
+        reference,
     ):
         r"""Integrate power law analytically (static function).
 
@@ -880,7 +895,7 @@ class PowerLawNuisanceSpectralModel(SpectralModel):
         energy_min, energy_max : `~astropy.units.Quantity`
             Lower and upper bound of integration range
         """
-        val = -1 * index + 1
+        val = -1 * ((1 + index_nuisance) * index) + 1
 
         prefactor = (1 + amplitude_nuisance) * amplitude * reference / val
         upper = np.power((energy_max / reference), val)
@@ -901,7 +916,13 @@ class PowerLawNuisanceSpectralModel(SpectralModel):
 
     @staticmethod
     def evaluate_energy_flux(
-        energy_min, energy_max, index, amplitude, amplitude_nuisance, reference
+        energy_min,
+        energy_max,
+        index,
+        index_nuisance,
+        amplitude,
+        amplitude_nuisance,
+        reference,
     ):
         r"""Compute energy flux in given energy range analytically (static function).
 
@@ -915,7 +936,7 @@ class PowerLawNuisanceSpectralModel(SpectralModel):
         energy_min, energy_max : `~astropy.units.Quantity`
             Lower and upper bound of integration range.
         """
-        val = -1 * index + 2
+        val = -1 * ((1 + index_nuisance) * index) + 2
 
         prefactor = (1 + amplitude_nuisance) * amplitude * reference**2 / val
         upper = (energy_max / reference) ** val
