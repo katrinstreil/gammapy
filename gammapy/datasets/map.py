@@ -819,19 +819,16 @@ class MapDataset(Dataset):
 
     @property
     def penalising_invcovmatrix(self):
-        """I'm the _penalising_invcovmatrix property."""
+        """Inverted Covariance matrix used for the penalty term. Same size as number of Nuisance parameters"""
         return self._penalising_invcovmatrix
 
     @penalising_invcovmatrix.setter
     def penalising_invcovmatrix(self, value):
+        """Setting the inverted covariance matrix"""
         self._penalising_invcovmatrix = value
 
-    def stat_array(self):
-        """Likelihood per bin given the current model parameters"""
-        return cash(n_on=self.counts.data, mu_on=self.npred().data)
-
     def stat_sum(self):
-        """Total likelihood given the current model parameters."""
+        """Total likelihood given the current model parameters plus the Gaussian penalty term."""
         counts, npred = self.counts.data.astype(float), self.npred().data
         if (
             len(self.models.parameters.penalised_parameters) > 0
@@ -843,7 +840,6 @@ class MapDataset(Dataset):
             )
         else:
             penalty = 0
-        # print("penality", penalty, self.models.parameters.penalised_parameters.value)
 
         if self.mask is not None:
             return (
@@ -851,6 +847,10 @@ class MapDataset(Dataset):
             )
         else:
             return cash_sum_cython(counts.ravel(), npred.ravel()) + penalty
+
+    def stat_array(self):
+        """Likelihood per bin given the current model parameters"""
+        return cash(n_on=self.counts.data, mu_on=self.npred().data)
 
     def residuals(self, method="diff", **kwargs):
         """Compute residuals map.
