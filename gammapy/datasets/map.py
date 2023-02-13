@@ -541,7 +541,16 @@ class MapDataset(Dataset):
             evaluators = {model_name: self.evaluators[model_name]}
 
         for evaluator in evaluators.values():
-            if evaluator.needs_update or self._irf_parameters_changed:
+            if evaluator.needs_update:
+                evaluator.update(
+                    self.exposure,
+                    self.psf,
+                    self.edisp,
+                    self._geom,
+                    self.mask_image,
+                )
+
+            if self.irf_model is not None and self._irf_parameters_changed:
                 exposure = self.npred_irf()
                 evaluator.update(
                     exposure,
