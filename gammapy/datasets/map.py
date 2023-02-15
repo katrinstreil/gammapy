@@ -479,7 +479,10 @@ class MapDataset(Dataset):
         -------
         irf : `Map`
         """
+
         edisp = self.edisp
+        return edisp
+
         if self.irf_model and edisp:
             if self._irf_parameters_changed:
                 edisp_kernel = edisp.get_edisp_kernel()
