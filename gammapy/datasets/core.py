@@ -136,6 +136,19 @@ class Datasets(collections.abc.MutableSequence):
 
         self._datasets = datasets
 
+        for dataset in datasets:
+            if hasattr(dataset, "penalising_invcovmatrix"):
+                self.penalising_invcovmatrix = dataset.penalising_invcovmatrix
+
+    @property
+    def penalising_invcovmatrix(self):
+        """I'm the _penalising_invcovmatrix property."""
+        return self._penalising_invcovmatrix
+
+    @penalising_invcovmatrix.setter
+    def penalising_invcovmatrix(self, value):
+        self._penalising_invcovmatrix = value
+
     @property
     def parameters(self):
         """Unique parameters (`~gammapy.modeling.Parameters`).

@@ -5,7 +5,7 @@ from gammapy.datasets import Datasets
 from gammapy.estimators.parameter import ParameterEstimator
 from gammapy.maps import Map, MapAxis
 from gammapy.modeling import Parameter, Parameters
-from gammapy.modeling.models import ScaleSpectralModel
+from gammapy.modeling.models import Models, ScaleSpectralModel
 
 log = logging.getLogger(__name__)
 
@@ -172,7 +172,7 @@ class FluxEstimator(ParameterEstimator):
             Dict with results for the flux point.
         """
         datasets = Datasets(datasets)
-        models = datasets.models.copy()
+        models = Models(datasets.models.copy())
 
         model = self.get_scale_model(models)
 

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from gammapy.data import GTI
 from gammapy.irf import EDispKernelMap, EDispMap, PSFKernel, PSFMap, RecoPSFMap
 from gammapy.maps import Map, MapAxis
-from gammapy.modeling.models import DatasetModels, FoVBackgroundModel
+from gammapy.modeling.models import DatasetModels, FoVBackgroundModel, IRFModel
 from gammapy.stats import (
     CashCountsStatistic,
     WStatCountsStatistic,
@@ -205,6 +205,7 @@ class MapDataset(Dataset):
         gti=None,
         meta_table=None,
         name=None,
+        _penalising_invcovmatrix=None,
     ):
         self._name = make_name(name)
         self._evaluators = {}
@@ -214,6 +215,8 @@ class MapDataset(Dataset):
         self.background = background
         self._background_cached = None
         self._background_parameters_cached = None
+        self._irf_cached = None
+        self._irf_parameters_cached = None
 
         self.mask_fit = mask_fit
 
@@ -235,13 +238,20 @@ class MapDataset(Dataset):
         self.gti = gti
         self.models = models
         self.meta_table = meta_table
-        self._penalising_invcovmatrix = None
+        self._penalising_invcovmatrix = _penalising_invcovmatrix
 
     # TODO: keep or remove?
     @property
     def background_model(self):
         try:
             return self.models[f"{self.name}-bkg"]
+        except (ValueError, TypeError):
+            pass
+
+    @property
+    def irf_model(self):
+        try:
+            return self.models[f"{self.name}-irf"]
         except (ValueError, TypeError):
             pass
 
@@ -335,7 +345,9 @@ class MapDataset(Dataset):
             models = models.select(datasets_names=self.name)
 
             for model in models:
-                if not isinstance(model, FoVBackgroundModel):
+                if not isinstance(model, FoVBackgroundModel) and not isinstance(
+                    model, IRFModel
+                ):
                     evaluator = MapEvaluator(
                         model=model,
                         evaluation_mode=EVALUATION_MODE,
@@ -440,6 +452,50 @@ class MapDataset(Dataset):
         npred_total.data[npred_total.data < 0.0] = 0
         return npred_total
 
+    def npred_exposure(self):
+        """Predicted exposure map
+
+        Returns
+        -------
+        exposure : `Map`
+        """
+        exposure = self.exposure
+        if self.irf_model and exposure:
+            if self._irf_parameters_changed:
+                values = self.irf_model.evaluate_geom(geom=self.exposure.geom)
+                if self._irf_cached is None:
+                    self._irf_cached = exposure * values
+                else:
+                    self._irf_cached.quantity = exposure.quantity * values.value
+            return self._irf_cached
+        else:
+            return exposure
+        return exposure
+
+    def npred_edisp(self):
+        """Predicted edisp map
+
+        Returns
+        -------
+        irf : `Map`
+        """
+
+        edisp = self.edisp
+        return edisp
+
+        if self.irf_model and edisp:
+            if self._irf_parameters_changed:
+                edisp_kernel = edisp.get_edisp_kernel()
+                gaussian = self.irf_model.evaluate_gaussian(
+                    energy_axis_true=edisp_kernel.axes["energy_true"],
+                    energy_axis=edisp_kernel.axes["energy_true"],
+                )
+                edisp_kernel.data = np.matmul(edisp_kernel.data, gaussian.data)
+            return EDispKernelMap.from_edisp_kernel(edisp_kernel)
+        else:
+            return edisp
+        return edisp
+
     def npred_background(self):
         """Predicted background counts
 
@@ -466,6 +522,14 @@ class MapDataset(Dataset):
             return background
 
         return background
+
+    def _irf_parameters_changed(self):
+        values = self.irf_model.parameters.value
+        # TODO: possibly allow for a tolerance here?
+        changed = ~np.all(self._irf_parameters_changed == values)
+        if changed:
+            self._irf_parameters_changed = values
+        return changed
 
     def _background_parameters_changed(self):
         values = self.background_model.parameters.value
@@ -505,6 +569,17 @@ class MapDataset(Dataset):
                     self.exposure,
                     self.psf,
                     self.edisp,
+                    self._geom,
+                    self.mask_image,
+                )
+
+            if self.irf_model is not None and self._irf_parameters_changed:
+                exposure = self.npred_exposure()
+                edisp = self.npred_edisp()
+                evaluator.update(
+                    exposure,
+                    self.psf,
+                    edisp,
                     self._geom,
                     self.mask_image,
                 )
@@ -785,7 +860,7 @@ class MapDataset(Dataset):
 
         if self.stat_type == "cash":
             if self.background and other.background:
-                background = self.npred_background() * self.mask_safe
+                background = self.npred_background()
                 background.stack(
                     other.npred_background(),
                     weights=other.mask_safe,
@@ -818,31 +893,25 @@ class MapDataset(Dataset):
 
     @property
     def penalising_invcovmatrix(self):
-        """I'm the _penalising_invcovmatrix property."""
+        """Inverted Covariance matrix used for the penalty term. Same size as number of Nuisance parameters"""
         return self._penalising_invcovmatrix
 
     @penalising_invcovmatrix.setter
     def penalising_invcovmatrix(self, value):
+        """Setting the inverted covariance matrix"""
         self._penalising_invcovmatrix = value
 
-    def stat_array(self):
-        """Likelihood per bin given the current model parameters"""
-        return cash(n_on=self.counts.data, mu_on=self.npred().data)
-
     def stat_sum(self):
-        """Total likelihood given the current model parameters."""
+        """Total likelihood given the current model parameters plus the Gaussian penalty term."""
         counts, npred = self.counts.data.astype(float), self.npred().data
-        if (
-            len(self.models.parameters.penalised_parameters) > 0
-            and self.penalising_invcovmatrix is not None
-        ):
+        if len(self.models.parameters.penalised_parameters) > 0:
+            # if self.penalising_invcovmatrix is not None:
             penalty = gaussian_penality(
                 self.models.parameters.penalised_parameters,
                 self._penalising_invcovmatrix,
             )
         else:
             penalty = 0
-        print("penality", penalty, self.models.parameters.penalised_parameters.value)
 
         if self.mask is not None:
             return (
@@ -850,6 +919,10 @@ class MapDataset(Dataset):
             )
         else:
             return cash_sum_cython(counts.ravel(), npred.ravel()) + penalty
+
+    def stat_array(self):
+        """Likelihood per bin given the current model parameters"""
+        return cash(n_on=self.counts.data, mu_on=self.npred().data)
 
     def residuals(self, method="diff", **kwargs):
         """Compute residuals map.
@@ -1807,6 +1880,9 @@ class MapDataset(Dataset):
 
         if self.mask_fit is not None:
             kwargs["mask_fit"] = self.mask_fit.slice_by_idx(slices=slices)
+
+        if self.penalising_invcovmatrix is not None:
+            kwargs["_penalising_invcovmatrix"] = self.penalising_invcovmatrix
 
         return self.__class__(**kwargs)
 

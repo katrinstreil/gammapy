@@ -43,6 +43,7 @@ __all__ = [
     "PiecewiseNormSpectralModel",
     "PowerLaw2SpectralModel",
     "PowerLawNormSpectralModel",
+    "PowerLawNormNuisanceSpectralModel",
     "PowerLawSpectralModel",
     "scale_plot_flux",
     "ScaleSpectralModel",
@@ -183,7 +184,6 @@ class SpectralModel(ModelBase):
         for idx, parameter in enumerate(self.parameters):
             if parameter.frozen or eps[idx] == 0:
                 continue
-
             parameter.value += eps[idx]
             df = fct(**kwargs) - f_0
 
@@ -524,8 +524,9 @@ class SpectralModel(ModelBase):
         ----------
         energy : `~astropy.units.Quantity`
             Energy at which to estimate the index
-        epsilon : float
+        epsilon : float, optional
             Fractional energy increment to use for determining the spectral index.
+            default = 1e-5
 
         Returns
         -------
@@ -535,6 +536,26 @@ class SpectralModel(ModelBase):
         f1 = self(energy)
         f2 = self(energy * (1 + epsilon))
         return np.log(f1 / f2) / np.log(1 + epsilon)
+
+    def spectral_index_error(self, energy, epsilon=1e-5):
+        """Evaluate the error on spectral index at the given energy
+
+        Parameters
+        ----------
+        energy : `~astropy.units.Quantity`
+            Energy at which to estimate the index
+        epsilon : float, optional
+            Fractional energy increment to use for determining the spectral index
+            default = 1e-5
+
+        Returns
+        -------
+        index, index_error : tuple of float
+            Estimated spectral index and its error
+        """
+        return self._propagate_error(
+            epsilon=epsilon, fct=self.spectral_index, energy=energy
+        )
 
     def inverse(self, value, energy_min=0.1 * u.TeV, energy_max=100 * u.TeV):
         """Return energy for a given function value of the spectral model.
@@ -802,6 +823,137 @@ class PowerLawSpectralModel(SpectralModel):
         amplitude = self.amplitude.quantity
         cov_index_ampl = self.covariance.data[0, 1] * amplitude.unit
         return reference * np.exp(cov_index_ampl / (amplitude * index_err**2))
+
+
+class PowerLawNormNuisanceSpectralModel(SpectralModel):
+    r"""Spectral power-law model with normalized amplitude parameter.
+
+    Parameters
+    ----------
+    tilt : `~astropy.units.Quantity`
+        :math:`\Gamma`
+    norm : `~astropy.units.Quantity`
+        :math:`\phi_0`
+    reference : `~astropy.units.Quantity`
+        :math:`E_0`
+
+    See Also
+    --------
+    PowerLawSpectralModel, PowerLaw2SpectralModel
+    """
+
+    tag = ["PowerLawNormSpectralModel", "pl-norm"]
+    norm = Parameter("norm", 1, unit="", interp="log", is_norm=True)
+    norm_nuisance = Parameter("norm_nuisance", 0, is_penalised=True)
+    tilt = Parameter("tilt", 0, frozen=True)
+    reference = Parameter("reference", "1 TeV", frozen=True)
+
+    @staticmethod
+    def evaluate(energy, tilt, norm, norm_nuisance, reference):
+        """Evaluate the model (static function)."""
+        return (1 + norm_nuisance) * norm * np.power((energy / reference), -tilt)
+
+    @staticmethod
+    def evaluate_integral(energy_min, energy_max, tilt, norm, norm_nuisance, reference):
+        """Evaluate pwl integral."""
+        val = -1 * tilt + 1
+
+        prefactor = (1 + norm_nuisance) * norm * reference / val
+        upper = np.power((energy_max / reference), val)
+        lower = np.power((energy_min / reference), val)
+        integral = prefactor * (upper - lower)
+
+        mask = np.isclose(val, 0)
+
+        if mask.any():
+            integral[mask] = (
+                (1 + norm_nuisance) * norm * reference * np.log(energy_max / energy_min)
+            )[mask]
+
+        return integral
+
+    @staticmethod
+    def evaluate_energy_flux(
+        energy_min, energy_max, tilt, norm, norm_nuisance, reference
+    ):
+        """Evaluate the energy flux (static function)"""
+        val = -1 * tilt + 2
+
+        prefactor = (1 + norm_nuisance) * norm * reference**2 / val
+        upper = (energy_max / reference) ** val
+        lower = (energy_min / reference) ** val
+        energy_flux = prefactor * (upper - lower)
+
+        mask = np.isclose(val, 0)
+
+        if mask.any():
+            # see https://www.wolframalpha.com/input/?i=a+*+x+*+(x%2Fb)+%5E+(-2)
+            # for reference
+            energy_flux[mask] = (
+                (1 + norm_nuisance)
+                * norm
+                * reference**2
+                * np.log(energy_max / energy_min)[mask]
+            )
+
+        return energy_flux
+
+    def inverse(self, value, *args):
+        """Return energy for a given function value of the spectral model.
+
+        Parameters
+        ----------
+        value : `~astropy.units.Quantity`
+            Function value of the spectral model.
+        """
+        base = value / self.norm.quantity / (1 + self.norm_nuisance)
+        return self.reference.quantity * np.power(base, -1.0 / self.tilt.value)
+
+    @property
+    def pivot_energy(self):
+        r"""The decorrelation energy is defined as:
+
+        .. math::
+
+            E_D = E_0 * \exp{cov(\phi_0, \Gamma) / (\phi_0 \Delta \Gamma^2)}
+
+        Formula (1) in https://arxiv.org/pdf/0910.4881.pdf
+        """
+        tilt_err = self.tilt.error
+        reference = self.reference.quantity
+        norm = self.norm.quantity
+        cov_tilt_norm = self.covariance.data[0, 1] * norm.unit
+        return reference * np.exp(cov_tilt_norm / (norm * tilt_err**2))
+
+
+class PowerLawNormPenSpectralModel(SpectralModel):
+    r"""Spectral power-law model with normalized amplitude parameter.
+
+    Parameters
+    ----------
+    tilt : `~astropy.units.Quantity`
+        :math:`\Gamma`
+    norm : `~astropy.units.Quantity`
+        :math:`\phi_0`
+    reference : `~astropy.units.Quantity`
+        :math:`E_0`
+
+    See Also
+    --------
+    PowerLawSpectralModel, PowerLaw2SpectralModel
+    """
+
+    tag = ["PowerLawNormSpectralModel", "pl-norm"]
+    norm_nuisance = Parameter(
+        "norm_nuisance", 0, unit="", interp="log", is_norm=True, is_penalised=True
+    )
+    tilt_nuisance = Parameter("tilt_nuisance", 0, frozen=True, is_penalised=True)
+    reference = Parameter("reference", "1 TeV", frozen=True)
+
+    @staticmethod
+    def evaluate(energy, tilt_nuisance, norm_nuisance, reference):
+        """Evaluate the model (static function)."""
+        return (1 + norm_nuisance) * np.power((energy / reference), -tilt_nuisance)
 
 
 class PowerLawNormSpectralModel(SpectralModel):
@@ -1767,6 +1919,39 @@ class TemplateNDSpectralModel(SpectralModel):
         data["spectral"]["filename"] = self.filename
         data["spectral"]["unit"] = str(self.map.unit)
         return data
+
+
+class ScaleNuisanceSpectralModel(SpectralModel):
+    """Wrapper to scale another spectral model by a norm factor.
+
+    Parameters
+    ----------
+    model : `SpectralModel`
+        Spectral model to wrap.
+    norm : float
+        Multiplicative norm factor for the model value.
+    """
+
+    tag = ["ScaleSpectralModel", "scale"]
+    norm = Parameter("norm", 1, unit="", interp="log", is_norm=True)
+    norm_nuisance = Parameter(
+        "norm_nuisance", 0, unit="", interp="lin", is_norm=False, is_penalised=True
+    )
+
+    def __init__(self, model, norm=norm.quantity, norm_nuisance=norm_nuisance.quantity):
+        self.model = model
+        self._covariance = None
+        super().__init__(norm=norm)
+
+    def evaluate(self, energy, norm, norm_nuisance):
+        return (1 + norm_nuisance) * norm * self.model(energy)
+
+    def integral(self, energy_min, energy_max, **kwargs):
+        return (
+            (1 + self.norm_nuisance.value)
+            * self.norm.value
+            * self.model.integral(energy_min, energy_max, **kwargs)
+        )
 
 
 class ScaleSpectralModel(SpectralModel):

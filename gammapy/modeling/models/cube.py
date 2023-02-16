@@ -5,14 +5,19 @@ import numpy as np
 import astropy.units as u
 from astropy.nddata import NoOverlapError
 from gammapy.maps import Map, MapAxis, WcsGeom
-from gammapy.modeling import Covariance, Parameters
+from gammapy.modeling import Covariance, Parameter, Parameters
 from gammapy.modeling.covariance import copy_covariance
 from gammapy.modeling.parameter import _get_parameters_str
 from gammapy.utils.fits import LazyFitsData
 from gammapy.utils.scripts import make_name, make_path
 from .core import Model, ModelBase, Models
 from .spatial import ConstantSpatialModel, SpatialModel
-from .spectral import PowerLawNormSpectralModel, SpectralModel, TemplateSpectralModel
+from .spectral import (
+    PowerLawNormPenSpectralModel,
+    PowerLawNormSpectralModel,
+    SpectralModel,
+    TemplateSpectralModel,
+)
 from .temporal import TemporalModel
 
 __all__ = [
@@ -21,6 +26,103 @@ __all__ = [
     "SkyModel",
     "TemplateNPredModel",
 ]
+
+
+class IRFModel(ModelBase):
+    """IRF Model
+
+    Parameters
+    ----------
+    spectral_model : `~gammapy.modeling.models.SpectralModel`
+        Normalized spectral model.
+    dataset_name : str
+        Dataset name
+
+    """
+
+    bias = Parameter("bias", "0", is_penalised=True)
+    resolution = Parameter("resolution", "0", is_penalised=True)
+
+    tag = ["IRFModel", "irf"]
+
+    def __init__(self, spectral_model=None, dataset_name=None):
+        if dataset_name is None:
+            raise ValueError("Dataset name a is required argument")
+
+        self.datasets_names = [dataset_name]
+
+        if spectral_model is None:
+            spectral_model = PowerLawNormPenSpectralModel()
+
+        if not spectral_model.is_norm_spectral_model:
+            raise ValueError("A norm spectral model is required.")
+
+        self._spectral_model = spectral_model
+
+        self.bias = Parameter("bias", "1e-12", is_penalised=True)
+        self.resolution = Parameter("resolution", "1e-12", is_penalised=True)
+
+        super().__init__()
+
+    @staticmethod
+    def contributes(*args, **kwargs):
+        """IRF models always contribute"""
+        return True
+
+    @property
+    def spectral_model(self):
+        """Spectral norm model"""
+        return self._spectral_model
+
+    @property
+    def name(self):
+        """Model name"""
+        return self.datasets_names[0] + "-irf"
+
+    @property
+    def parameters(self):
+        """Model parameters"""
+        parameters = []
+        parameters.append(self.spectral_model.parameters)
+        parameters.append([self.bias, self.resolution])
+        return Parameters.from_stack(parameters)
+
+    def __str__(self):
+        str_ = f"{self.__class__.__name__}\n\n"
+
+        str_ += "\t{:26}: {}\n".format("Name", self.name)
+        str_ += "\t{:26}: {}\n".format("Datasets names", self.datasets_names)
+        str_ += "\t{:26}: {}\n".format(
+            "Spectral model type", self.spectral_model.__class__.__name__
+        )
+        str_ += "\tParameters:\n"
+        info = _get_parameters_str(self.parameters)
+        lines = info.split("\n")
+        str_ += "\t" + "\n\t".join(lines[:-1])
+
+        str_ += "\n\n"
+        return str_.expandtabs(tabsize=2)
+
+    def evaluate_geom(self, geom):
+        """Evaluate map"""
+        coords = geom.get_coord(sparse=True)
+        return self.evaluate(energy=coords["energy_true"])
+
+    def evaluate(self, energy):
+        """Evaluate model"""
+        return self.spectral_model(energy)
+
+    def evaluate_gaussian(self, energy_axis_true, energy_axis):
+        pass
+        from gammapy.irf import EDispKernel
+
+        gaussian = EDispKernel.from_gauss(
+            energy_axis_true=energy_axis_true,
+            energy_axis=energy_axis,
+            sigma=self.resolution.value,
+            bias=self.bias.value,
+        )
+        return gaussian
 
 
 class SkyModel(ModelBase):
@@ -702,7 +804,7 @@ class FoVBackgroundModel(ModelBase):
         spectral_data = data.get("spectral")
         if spectral_data is not None:
             model_class = SPECTRAL_MODEL_REGISTRY.get_cls(spectral_data["type"])
-            spectral_model = model_class.from_dict(spectral_data)
+            spectral_model = model_class.from_dict({"spectral": spectral_data})
         else:
             spectral_model = None
 
@@ -883,7 +985,7 @@ class TemplateNPredModel(ModelBase):
 
         if spectral_data is not None:
             model_class = SPECTRAL_MODEL_REGISTRY.get_cls(spectral_data["type"])
-            spectral_model = model_class.from_dict(spectral_data)
+            spectral_model = model_class.from_dict({"spectral": spectral_data})
         else:
             spectral_model = None
 
