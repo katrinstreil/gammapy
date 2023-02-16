@@ -481,7 +481,6 @@ class MapDataset(Dataset):
         """
 
         edisp = self.edisp
-        return edisp
 
         if self.irf_model and edisp:
             if self._irf_parameters_changed:
