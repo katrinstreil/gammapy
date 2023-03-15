@@ -4,7 +4,7 @@ from gammapy.utils.registry import Registry
 from .core import DatasetModels, Model, ModelBase, Models
 from .cube import (
     FoVBackgroundModel,
-    IRFModel,
+    #IRFModel,
     SkyModel,
     TemplateNPredModel,
     create_fermi_isotropic_diffuse_model,

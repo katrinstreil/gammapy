@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 from gammapy.data import GTI
 from gammapy.irf import EDispKernelMap, EDispMap, PSFKernel, PSFMap, RecoPSFMap
 from gammapy.maps import Map, MapAxis
-from gammapy.modeling.models import DatasetModels, FoVBackgroundModel, IRFModel
+from gammapy.modeling.models import DatasetModels, FoVBackgroundModel
+from gammapy.modeling.models.IRF import  IRFModel, IRFModels
 from gammapy.stats import (
     CashCountsStatistic,
     WStatCountsStatistic,
@@ -194,6 +195,7 @@ class MapDataset(Dataset):
 
     def __init__(
         self,
+        e_reco_n=None, 
         models=None,
         counts=None,
         exposure=None,
@@ -239,6 +241,7 @@ class MapDataset(Dataset):
         self.models = models
         self.meta_table = meta_table
         self._penalising_invcovmatrix = _penalising_invcovmatrix
+        self.e_reco_n = e_reco_n
 
     # TODO: keep or remove?
     @property
@@ -346,7 +349,7 @@ class MapDataset(Dataset):
 
             for model in models:
                 if not isinstance(model, FoVBackgroundModel) and not isinstance(
-                    model, IRFModel
+                    model, IRFModels
                 ):
                     evaluator = MapEvaluator(
                         model=model,
@@ -460,7 +463,7 @@ class MapDataset(Dataset):
         exposure : `Map`
         """
         exposure = self.exposure
-        if self.irf_model and exposure:
+        if self.irf_model.eff_area_model and exposure:
             if self._irf_parameters_changed:
                 values = self.irf_model.evaluate_geom(geom=self.exposure.geom)
                 if self._irf_cached is None:
@@ -471,6 +474,15 @@ class MapDataset(Dataset):
         else:
             return exposure
         return exposure
+    
+    def edisp_helper(self, energy):
+        energy_rebins = MapAxis(nodes =np.logspace(np.log10(energy.edges[0].value), 
+                                           np.log10(energy.edges[-1].value),
+                                           self.e_reco_n *len(energy.center)),
+                        node_type='center',
+                        name = 'energy',
+                        unit = 'TeV')
+        return energy_rebins
 
     def npred_edisp(self):
         """Predicted edisp map
@@ -479,18 +491,33 @@ class MapDataset(Dataset):
         -------
         irf : `Map`
         """
-
+        
         edisp = self.edisp
         if self.irf_model and edisp:
             if self._irf_parameters_changed:
+                # get the kernel
                 edisp_kernel = edisp.get_edisp_kernel()
-                gaussian = self.irf_model.evaluate_gaussian(
-                    energy_axis_true=edisp_kernel.axes["energy"].copy(
+                # rebin enenergyaxis 
+                energy_rebins = self.edisp_helper(edisp_kernel.axes["energy"])
+                # compute gaussian with new eaxis
+                print("in map:", self.models.parameters['resolution'].value)
+                gaussian = self.irf_model.e_reco_model(
+                    energy_axis_true=energy_rebins.copy(
                         name="energy_true"
                     ),
-                    energy_axis=edisp_kernel.axes["energy"],
+                    energy_axis=energy_rebins,
                 )
-                edisp_kernel.data = np.matmul(edisp_kernel.data, gaussian.data)
+                # rebin edisp_kernel data and multiply with gaussian
+                data_rebinned = np.matmul(
+                    np.repeat(np.repeat(edisp_kernel.data, self.e_reco_n,axis =0), self.e_reco_n, axis =1)
+                    , gaussian.data)
+                # set as kernel data
+                print(self.e_reco_n)
+                edisp_kernel.data = data_rebinned.reshape((len(edisp_kernel.axes["energy"].center), 
+                                                       self.e_reco_n, 
+                                                       len(edisp_kernel.axes["energy"].center), 
+                                                       self.e_reco_n)).mean(axis=(1, 3))
+                
             return EDispKernelMap.from_edisp_kernel(edisp_kernel)
         else:
             return edisp

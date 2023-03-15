@@ -27,7 +27,7 @@ __all__ = [
     "TemplateNPredModel",
 ]
 
-
+'''
 class IRFModel(ModelBase):
     """IRF Model
 
@@ -59,8 +59,8 @@ class IRFModel(ModelBase):
 
         self._spectral_model = spectral_model
 
-        self.bias = Parameter("bias", "0", is_penalised=True)
-        self.resolution = Parameter("resolution", "0", is_penalised=True)
+        #self.bias = Parameter("bias", "0", is_penalised=True)
+        #self.resolution = Parameter("resolution", "0", is_penalised=True)
 
         super().__init__()
 
@@ -82,9 +82,9 @@ class IRFModel(ModelBase):
     @property
     def parameters(self):
         """Model parameters"""
-        parameters = []
-        parameters.append(self.spectral_model.parameters)
-        parameters.append([self.bias, self.resolution])
+        parameters = [self.spectral_model.parameters]
+        #parameters.append(Parameters([IRFModel.bias, IRFModel.resolution]))
+        parameters.append(self.default_parameters)
         return Parameters.from_stack(parameters)
 
     def __str__(self):
@@ -112,18 +112,38 @@ class IRFModel(ModelBase):
         """Evaluate model"""
         return self.spectral_model(energy)
 
+    
+    def __call__(self, energy):
+        kwargs = {par.name: par.quantity for par in self.parameters}
+        kwargs = self._convert_evaluate_unit(kwargs, energy)
+        return self.evaluate(energy, **kwargs)
+    
+    
     def evaluate_gaussian(self, energy_axis_true, energy_axis):
         from gammapy.irf import EDispKernel
-
+        kwargs = {par.name: par.quantity for par in self.parameters}
+        print(kwargs)
+        print("evaluate:", kwargs['resolution'], kwargs['bias'])
         gaussian = EDispKernel.from_gauss(
             energy_axis_true=energy_axis_true,
             energy_axis=energy_axis,
-            sigma=(1e-7 + self.resolution.value),
-            bias=self.bias.value,
+            sigma=(1e-12 + np.abs(kwargs['resolution'].value)),
+            bias=kwargs['bias'].value,
         )
         return gaussian
+    
+    #def evaluate_gaussian(self, resolution, bias, energy_axis_true, energy_axis):
+    #    from gammapy.irf import EDispKernel
+    #    print("evaluate:", resolution.value, bias.value)
+    #    gaussian = EDispKernel.from_gauss(
+    #        energy_axis_true=energy_axis_true,
+    #        energy_axis=energy_axis,
+    #        sigma=(1e-12 + np.abs(resolution.value)),
+    #        bias=bias.value,
+    #    )
+    #    return gaussian
 
-
+'''
 class SkyModel(ModelBase):
     """Sky model component.
 
