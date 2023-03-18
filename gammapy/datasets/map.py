@@ -195,7 +195,7 @@ class MapDataset(Dataset):
 
     def __init__(
         self,
-        e_reco_n=None, 
+        e_reco_n=10, 
         models=None,
         counts=None,
         exposure=None,
@@ -500,7 +500,6 @@ class MapDataset(Dataset):
                 # rebin enenergyaxis 
                 energy_rebins = self.edisp_helper(edisp_kernel.axes["energy"])
                 # compute gaussian with new eaxis
-                print("in map:", self.models.parameters['resolution'].value)
                 gaussian = self.irf_model.e_reco_model(
                     energy_axis_true=energy_rebins.copy(
                         name="energy_true"
@@ -512,8 +511,7 @@ class MapDataset(Dataset):
                     np.repeat(np.repeat(edisp_kernel.data, self.e_reco_n,axis =0), self.e_reco_n, axis =1)
                     , gaussian.data)
                 # set as kernel data
-                print(self.e_reco_n)
-                edisp_kernel.data = data_rebinned.reshape((len(edisp_kernel.axes["energy"].center), 
+                edisp_kernel.data = data_rebinned.reshape((len(edisp_kernel.axes["energy_true"].center), 
                                                        self.e_reco_n, 
                                                        len(edisp_kernel.axes["energy"].center), 
                                                        self.e_reco_n)).mean(axis=(1, 3))

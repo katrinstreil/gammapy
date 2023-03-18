@@ -4,11 +4,14 @@ from gammapy.utils.registry import Registry
 from .core import DatasetModels, Model, ModelBase, Models
 from .cube import (
     FoVBackgroundModel,
-    #IRFModel,
     SkyModel,
     TemplateNPredModel,
     create_fermi_isotropic_diffuse_model,
 )
+from .IRF import(
+	IRFModel,
+	IRFModels,
+	ERecoIRFModel)
 from .spatial import (
     ConstantFluxSpatialModel,
     ConstantSpatialModel,
@@ -78,6 +81,7 @@ __all__ = [
     "DatasetModels",
     "DiskSpatialModel",
     "EBLAbsorptionNormSpectralModel",
+    "ERecoIRFModel",
     "ExpCutoffPowerLaw3FGLSpectralModel",
     "ExpCutoffPowerLawNormSpectralModel",
     "ExpCutoffPowerLawSpectralModel",
@@ -89,6 +93,8 @@ __all__ = [
     "GeneralizedGaussianSpatialModel",
     "GeneralizedGaussianTemporalModel",
     "integrate_spectrum",
+    "IRFModel",
+    "IRFModels",
     "LightCurveTemplateTemporalModel",
     "LinearTemporalModel",
     "LogParabolaNormSpectralModel",
@@ -190,5 +196,14 @@ TEMPORAL_MODEL_REGISTRY = Registry(
 )
 """Registry of temporal models classes."""
 
-MODEL_REGISTRY = Registry([SkyModel, FoVBackgroundModel, TemplateNPredModel])
+IRF_MODEL_REGISTRY = Registry(
+    [
+        IRFModels,
+        ERecoIRFModel
+    ]
+)
+"""Registry of IRF models classes."""
+
+
+MODEL_REGISTRY = Registry([SkyModel, FoVBackgroundModel, TemplateNPredModel, IRFModels])
 """Registry of model classes"""
