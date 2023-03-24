@@ -210,7 +210,7 @@ class ModelBase:
 
         key0 = next(iter(data))
 
-        if key0 in ["spatial", "temporal", "spectral", "ERecoIRFModel"]:
+        if key0 in ["spatial", "temporal", "spectral", "ERecoIRFModel", "EffAreaIRFModel"]:
             data = data[key0]
 
         if data["type"] not in cls.tag:

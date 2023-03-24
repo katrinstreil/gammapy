@@ -27,6 +27,7 @@ from .core import ModelBase
 
 from gammapy.modeling import Covariance, Parameter, Parameters
 from gammapy.modeling.covariance import copy_covariance
+from gammapy.modeling.models.spectral import PowerLawNormPenSpectralModel
 
 
 __all__ = ["IRFModels", "IRFModel", "ERecoIRFModel"]
@@ -40,39 +41,30 @@ class IRFModels(ModelBase):
         self,
         e_reco_model=None,
         eff_area_model=None,
-        name=None,
         datasets_names=None,
     ):
         self.e_reco_model = e_reco_model
-        self.eff_area_model = None
-        self._name = "Irfname"    
+        self.eff_area_model = eff_area_model
         self.datasets_names = datasets_names    
         
         super().__init__()
-        
-    def __call__(self, energy_axis_true, energy_axis):
-        kwargs = {par.name: par.quantity for par in self.parameters}
-        #kwargs = self._convert_evaluate_unit(kwargs, energy)
-        return self.evaluate(energy_axis_true, energy_axis, **kwargs)
     
     @property
     def name(self):
         """Model name"""
         return f"{self.datasets_names}-irf"
-    
        
     @property
     def _models(self):
         models = self.e_reco_model, self.eff_area_model
         return [model for model in models if model is not None]
     
-    
     @property
     def parameters(self):
         parameters = []
-        parameters.append(self.e_reco_model.parameters)
+        for m in self._models:
+            parameters.append(m.parameters)
         return Parameters.from_stack(parameters)
-    
     
     def _check_covariance(self):
         if not self.parameters == self._covariance.parameters:
@@ -121,8 +113,7 @@ class IRFModels(ModelBase):
         eff_area_model_data = data.get("eff_area_model")
 
         if eff_area_model_data is not None:
-        	# do stuff
-            print("no eff area model yet")
+        	eff_area_model = EffAreaIRFModel.from_dict({"EffAreaIRFModel": eff_area_model_data})
         else:
             eff_area_model = None
 
@@ -135,7 +126,7 @@ class IRFModels(ModelBase):
         
 
         return cls(
-            name=data["name"],
+            #name=data["name"],
             e_reco_model=e_reco_model,
             eff_area_model=eff_area_model,
             datasets_names=data.get("datasets_names"),
@@ -175,11 +166,11 @@ class IRFModel(ModelBase):
     """IRF model base class."""
 
     _type = "irf"
-        
-    def __call__(self, energy_axis_true, energy_axis):
+    
+    def __call__(self, energy_axis):
         kwargs = {par.name: par.quantity for par in self.parameters}
         #kwargs = self._convert_evaluate_unit(kwargs, energy)
-        return self.evaluate(energy_axis_true, energy_axis, **kwargs)
+        return self.evaluate(energy_axis, **kwargs)
     
     
 class ERecoIRFModel(IRFModel):
@@ -190,14 +181,50 @@ class ERecoIRFModel(IRFModel):
     tag = ["ERecoIRFModel", "ereco"]
     _type = "e_reco_model"
     
-    
     @staticmethod
-    def evaluate(energy_axis_true, energy_axis, bias, resolution):
+    def evaluate(energy_axis, bias, resolution):
         from gammapy.irf import EDispKernel
         gaussian = EDispKernel.from_gauss(
-            energy_axis_true=energy_axis_true,
+            energy_axis_true=energy_axis.copy(name = 'energy_true'),
             energy_axis=energy_axis,
             sigma=(1e-12 + np.abs(resolution.value)),
             bias=bias.value,
         )
         return gaussian
+    
+        
+class EffAreaIRFModel(ModelBase):
+    tag = ["EffAreaIRFModel", "effarea"]
+    _type = "eff_area_model" 
+    
+    def __init__(self, spectral_model=None):
+        
+        if spectral_model is None:
+            spectral_model = PowerLawNormPenSpectralModel()
+
+        if not spectral_model.is_norm_spectral_model:
+            raise ValueError("A norm spectral model is required.")
+
+        self._spectral_model = spectral_model
+        super().__init__()
+        
+    @property
+    def parameters(self):
+        """Model parameters"""
+        return self.spectral_model.parameters
+   
+    @property
+    def spectral_model(self):
+        """Spectral norm model"""
+        return self._spectral_model
+        
+    def evaluate_geom(self, geom):
+        """Evaluate map"""
+        coords = geom.get_coord(sparse=True)
+        return self.evaluate(energy=coords["energy_true"])
+
+    def evaluate(self, energy):
+        """Evaluate model"""
+        return self.spectral_model(energy)
+   
+  
