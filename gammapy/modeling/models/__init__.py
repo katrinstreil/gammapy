@@ -9,7 +9,8 @@ from .cube import (
     create_fermi_isotropic_diffuse_model,
 )
 from .IRF import(
-	IRFModel,
+	#IRFModel,
+    EffAreaIRFModel,
 	IRFModels,
 	ERecoIRFModel)
 from .spatial import (

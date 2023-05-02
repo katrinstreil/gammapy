@@ -10,10 +10,11 @@ __all__ = ["cash", "cstat", "wstat", "get_wstat_mu_bkg", "get_wstat_gof_terms"]
 
 
 def gaussian_penality(penalised_parameters, penalising_invcovmatrix):
-    return np.matmul(
+    res = np.matmul(
         np.matmul(penalising_invcovmatrix, penalised_parameters.value),
         penalised_parameters.value,
     )
+    return res 
 
 
 def cash(n_on, mu_on, truncation_value=TRUNCATION_VALUE):

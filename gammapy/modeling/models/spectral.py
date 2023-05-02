@@ -2372,16 +2372,16 @@ class GaussianSpectralModel(SpectralModel):
     """
 
     tag = ["GaussianSpectralModel", "gauss"]
-    amplitude = Parameter(
-        "amplitude", 1e-12 * u.Unit("cm-2 s-1"), interp="log", is_norm=True
+    amplitude_ = Parameter(
+        "amplitude_", 1e-12 * u.Unit("cm-2 s-1"), interp="log", is_norm=True
     )
     mean = Parameter("mean", 1 * u.TeV)
     sigma = Parameter("sigma", 2 * u.TeV)
 
     @staticmethod
-    def evaluate(energy, amplitude, mean, sigma):
+    def evaluate(energy, amplitude_, mean, sigma):
         return (
-            amplitude
+            amplitude_
             / (sigma * np.sqrt(2 * np.pi))
             * np.exp(-((energy - mean) ** 2) / (2 * sigma**2))
         )
@@ -2407,7 +2407,7 @@ class GaussianSpectralModel(SpectralModel):
         ).to_value("")
 
         return (
-            self.amplitude.quantity
+            self.amplitude_.quantity
             / 2
             * (scipy.special.erf(u_max) - scipy.special.erf(u_min))
         )
@@ -2432,8 +2432,8 @@ class GaussianSpectralModel(SpectralModel):
         u_max = (
             (energy_max - self.mean.quantity) / (np.sqrt(2) * self.sigma.quantity)
         ).to_value("")
-        a = self.amplitude.quantity * self.sigma.quantity / np.sqrt(2 * np.pi)
-        b = self.amplitude.quantity * self.mean.quantity / 2
+        a = self.amplitude_.quantity * self.sigma.quantity / np.sqrt(2 * np.pi)
+        b = self.amplitude_.quantity * self.mean.quantity / 2
         return a * (np.exp(-(u_min**2)) - np.exp(-(u_max**2))) + b * (
             scipy.special.erf(u_max) - scipy.special.erf(u_min)
         )

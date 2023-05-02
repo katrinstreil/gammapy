@@ -45,7 +45,7 @@ BINSZ_IRF_DEFAULT = 0.2
 
 EVALUATION_MODE = "local"
 USE_NPRED_CACHE = True
-
+E_RECO_N = 10
 
 def create_map_dataset_geoms(
     geom,
@@ -472,12 +472,12 @@ class MapDataset(Dataset):
         return exposure
            
     def edisp_helper(self, energy):
-        energy_rebins = MapAxis(nodes =np.logspace(np.log10(energy.edges[0].value), 
-                                           np.log10(energy.edges[-1].value),
-                                           self.e_reco_n *len(energy.center)),
+        energy_rebins = MapAxis(nodes =np.logspace(np.log10(energy.center[0].value), 
+                                           np.log10(energy.center[-1].value),
+                                           E_RECO_N *len(energy.center)),
                         node_type='center',
-                        name = energy.name,
-                        unit = energy.unit)
+                        name = 'energy',
+                       unit = 'TeV')
         return energy_rebins
 
     def npred_edisp(self):
@@ -578,6 +578,7 @@ class MapDataset(Dataset):
 
         for evaluator in evaluators.values():
             if evaluator.needs_update:
+                print("update")
                 evaluator.update(
                     self.exposure,
                     self.psf,
@@ -586,13 +587,13 @@ class MapDataset(Dataset):
                     self.mask_image,
                 )
            
-            if self.irf_model is not None:
+            if self.irf_model is not None and self._irf_parameters_changed():
                 edisp = self.edisp
                 exposure = self.exposure
                 
-                if self.irf_model.e_reco_model is not None and self._irf_parameters_changed:
+                if self.irf_model.e_reco_model is not None:
                     edisp = self.npred_edisp()
-                if self.irf_model.eff_area_model is not None and self._irf_parameters_changed:
+                if self.irf_model.eff_area_model is not None:
                     exposure = self.npred_exposure()
 
                 evaluator.update(

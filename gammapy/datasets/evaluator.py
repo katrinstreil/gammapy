@@ -108,8 +108,10 @@ class MapEvaluator:
 
     @property
     def needs_update(self):
+        print("needs update?")
         """Check whether the model component has drifted away from its support."""
         # TODO: simplify and clean up
+        return True
         if isinstance(self.model, TemplateNPredModel):
             return False
         elif not self.contributes:
@@ -272,6 +274,7 @@ class MapEvaluator:
         value: `~astropy.units.Quantity`
             Psf-corrected, integrated flux over a given region.
         """
+        print("_compute_flux_spatial")
         if self.geom.is_region:
             # We don't estimate spatial contributions if no psf are defined
             if self.geom.region is None or self.psf is None:
@@ -297,6 +300,7 @@ class MapEvaluator:
 
     def _compute_flux_spatial_geom(self, geom):
         """Compute spatial flux oversampling geom if necessary"""
+        print("_compute_flux_spatial_geom")
         if not self.model.spatial_model.is_energy_dependent:
             geom = geom.to_image()
         value = self.model.spatial_model.integrate_geom(geom)
@@ -335,6 +339,7 @@ class MapEvaluator:
 
     def apply_psf(self, npred):
         """Convolve npred cube with PSF"""
+        print("apply_psf")
         tmp = npred.convolve(self.psf)
         return tmp
 
