@@ -8,11 +8,12 @@ from .cube import (
     TemplateNPredModel,
     create_fermi_isotropic_diffuse_model,
 )
-from .IRF import(
-	#IRFModel,
+from .IRF import (  # IRFModel,
     EffAreaIRFModel,
-	IRFModels,
-	ERecoIRFModel)
+    ERecoIRFModel,
+    IRFModels,
+    NuisanceBackgroundModel,
+)
 from .spatial import (
     ConstantFluxSpatialModel,
     ConstantSpatialModel,
@@ -27,6 +28,7 @@ from .spatial import (
 )
 from .spectral import (  # PowerLawNormNuisanceSpectralModel,
     BrokenPowerLawSpectralModel,
+    CompoundNormSpectralModel,
     CompoundSpectralModel,
     ConstantSpectralModel,
     EBLAbsorptionNormSpectralModel,
@@ -41,6 +43,7 @@ from .spectral import (  # PowerLawNormNuisanceSpectralModel,
     PowerLaw2SpectralModel,
     PowerLawNormPenSpectralModel,
     PowerLawNormSpectralModel,
+    PowerLawNornSpectralModel,
     PowerLawSpectralModel,
     ScaleNuisanceSpectralModel,
     ScaleSpectralModel,
@@ -72,6 +75,7 @@ from .temporal import (
 __all__ = [
     "BrokenPowerLawSpectralModel",
     "CompoundSpectralModel",
+    "CompoundNormSpectralModel",
     "ConstantFluxSpatialModel",
     "ConstantSpatialModel",
     "ConstantSpectralModel",
@@ -106,12 +110,15 @@ __all__ = [
     "ModelBase",
     "MODEL_REGISTRY",
     "NaimaSpectralModel",
+    "NuisanceBackgroundModel",
     "PiecewiseNormSpectralModel",
     "PointSpatialModel",
     "PowerLaw2SpectralModel",
     "PowerLawNormSpectralModel",
+    "PowerLawNornSpectralModel",
     # "PowerLawNormNuisanceSpectralModel",
     # "PowerLawNormNuisanceESpectralModel",
+    "PowerLawSpectralModel",
     "PowerLawSpectralModel",
     "PowerLawTemporalModel",
     "scale_plot_flux",
@@ -156,6 +163,7 @@ SPECTRAL_MODEL_REGISTRY = Registry(
     [
         ConstantSpectralModel,
         CompoundSpectralModel,
+        CompoundNormSpectralModel,
         PowerLawSpectralModel,
         PowerLaw2SpectralModel,
         BrokenPowerLawSpectralModel,
@@ -175,6 +183,7 @@ SPECTRAL_MODEL_REGISTRY = Registry(
         ScaleSpectralModel,
         ScaleNuisanceSpectralModel,
         PowerLawNormSpectralModel,
+        PowerLawNornSpectralModel,
         # PowerLawNormNuisanceSpectralModel,
         LogParabolaNormSpectralModel,
         ExpCutoffPowerLawNormSpectralModel,
@@ -197,12 +206,7 @@ TEMPORAL_MODEL_REGISTRY = Registry(
 )
 """Registry of temporal models classes."""
 
-IRF_MODEL_REGISTRY = Registry(
-    [
-        IRFModels,
-        ERecoIRFModel
-    ]
-)
+IRF_MODEL_REGISTRY = Registry([IRFModels, ERecoIRFModel, NuisanceBackgroundModel])
 """Registry of IRF models classes."""
 
 

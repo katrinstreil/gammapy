@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "BrokenPowerLawSpectralModel",
     "CompoundSpectralModel",
+    "CompoundNormSpectralModel",
     "ConstantSpectralModel",
     "EBLAbsorptionNormSpectralModel",
     "ExpCutoffPowerLaw3FGLSpectralModel",
@@ -42,6 +43,7 @@ __all__ = [
     "NaimaSpectralModel",
     "PiecewiseNormSpectralModel",
     "PowerLaw2SpectralModel",
+    "PowerLawNornSpectralModel",
     "PowerLawNormSpectralModel",
     "PowerLawNormNuisanceSpectralModel",
     "PowerLawSpectralModel",
@@ -637,6 +639,69 @@ class ConstantSpectralModel(SpectralModel):
         return np.ones(np.atleast_1d(energy).shape) * const
 
 
+class CompoundNormSpectralModel(SpectralModel):
+    """Arithmetic combination of two spectral models.
+
+    For more information see :ref:`compound-spectral-model`.
+    """
+
+    tag = ["CompoundNormSpectralModel", "compound"]
+
+    def __init__(self, model1, model2, operator):
+        self.model1 = model1
+        self.model2 = model2
+        self.operator = operator
+        super().__init__()
+
+    @property
+    def parameters(self):
+        return self.model1.parameters + self.model2.parameters
+
+    def __str__(self):
+        return (
+            f"{self.__class__.__name__}\n"
+            f"    Component 1 : {self.model1}\n"
+            f"    Component 2 : {self.model2}\n"
+            f"    Operator : {self.operator.__name__}\n"
+        )
+
+    def __call__(self, energy):
+        val1 = self.model1(energy)
+        val2 = self.model2(energy)
+        return self.operator(val1, val2)
+
+    def to_dict(self, full_output=False):
+        dict1 = self.model1.to_dict(full_output)
+        dict2 = self.model2.to_dict(full_output)
+        return {
+            self._type: {
+                "type": self.tag[0],
+                "model1": dict1["spectral"],  # for cleaner output
+                "model2": dict2["spectral"],
+                "operator": self.operator.__name__,
+            }
+        }
+
+    def evaluate(self, energy, *args):
+        args1 = args[: len(self.model1.parameters)]
+        args2 = args[len(self.model1.parameters) :]
+        val1 = self.model1.evaluate(energy, *args1)
+        val2 = self.model2.evaluate(energy, *args2)
+        return self.operator(val1, val2)
+
+    @classmethod
+    def from_dict(cls, data):
+        from gammapy.modeling.models import SPECTRAL_MODEL_REGISTRY
+
+        data = data["spectral"]
+        model1_cls = SPECTRAL_MODEL_REGISTRY.get_cls(data["model1"]["type"])
+        model1 = model1_cls.from_dict({"spectral": data["model1"]})
+        model2_cls = SPECTRAL_MODEL_REGISTRY.get_cls(data["model2"]["type"])
+        model2 = model2_cls.from_dict({"spectral": data["model2"]})
+        op = getattr(operator, data["operator"])
+        return cls(model1, model2, op)
+
+
 class CompoundSpectralModel(SpectralModel):
     """Arithmetic combination of two spectral models.
 
@@ -954,6 +1019,99 @@ class PowerLawNormPenSpectralModel(SpectralModel):
     def evaluate(energy, tilt_nuisance, norm_nuisance, reference):
         """Evaluate the model (static function)."""
         return (1 + norm_nuisance) * np.power((energy / reference), -tilt_nuisance)
+
+
+class PowerLawNornSpectralModel(SpectralModel):
+    r"""Spectral power-law model with normalized amplitude parameter.
+
+    Parameters
+    ----------
+    tilt : `~astropy.units.Quantity`
+        :math:`\Gamma`
+    norm : `~astropy.units.Quantity`
+        :math:`\phi_0`
+    reference : `~astropy.units.Quantity`
+        :math:`E_0`
+
+    See Also
+    --------
+    PowerLawSpectralModel, PowerLaw2SpectralModel
+    """
+
+    tag = ["PowerLawNornSpectralModel", "pl-norm"]
+    norm_ = Parameter("norm_", 1, unit="", interp="log", is_norm=True)
+    tilt = Parameter("tilt", 0, frozen=True)
+    reference = Parameter("reference", "1 TeV", frozen=True)
+
+    @staticmethod
+    def evaluate(energy, tilt, norm_, reference):
+        """Evaluate the model (static function)."""
+        return norm_ * np.power((energy / reference), -tilt)
+
+    @staticmethod
+    def evaluate_integral(energy_min, energy_max, tilt, norm_, reference):
+        """Evaluate pwl integral."""
+        val = -1 * tilt + 1
+
+        prefactor = norm_ * reference / val
+        upper = np.power((energy_max / reference), val)
+        lower = np.power((energy_min / reference), val)
+        integral = prefactor * (upper - lower)
+
+        mask = np.isclose(val, 0)
+
+        if mask.any():
+            integral[mask] = (norm_ * reference * np.log(energy_max / energy_min))[mask]
+
+        return integral
+
+    @staticmethod
+    def evaluate_energy_flux(energy_min, energy_max, tilt, norm_, reference):
+        """Evaluate the energy flux (static function)"""
+        val = -1 * tilt + 2
+
+        prefactor = norm_ * reference**2 / val
+        upper = (energy_max / reference) ** val
+        lower = (energy_min / reference) ** val
+        energy_flux = prefactor * (upper - lower)
+
+        mask = np.isclose(val, 0)
+
+        if mask.any():
+            # see https://www.wolframalpha.com/input/?i=a+*+x+*+(x%2Fb)+%5E+(-2)
+            # for reference
+            energy_flux[mask] = (
+                norm_ * reference**2 * np.log(energy_max / energy_min)[mask]
+            )
+
+        return energy_flux
+
+    def inverse(self, value, *args):
+        """Return energy for a given function value of the spectral model.
+
+        Parameters
+        ----------
+        value : `~astropy.units.Quantity`
+            Function value of the spectral model.
+        """
+        base = value / self.norm.quantity
+        return self.reference.quantity * np.power(base, -1.0 / self.tilt.value)
+
+    @property
+    def pivot_energy(self):
+        r"""The decorrelation energy is defined as:
+
+        .. math::
+
+            E_D = E_0 * \exp{cov(\phi_0, \Gamma) / (\phi_0 \Delta \Gamma^2)}
+
+        Formula (1) in https://arxiv.org/pdf/0910.4881.pdf
+        """
+        tilt_err = self.tilt.error
+        reference = self.reference.quantity
+        norm_ = self.norm_.quantity
+        cov_tilt_norm = self.covariance.data[0, 1] * norm_.unit
+        return reference * np.exp(cov_tilt_norm / (norm_ * tilt_err**2))
 
 
 class PowerLawNormSpectralModel(SpectralModel):
@@ -2437,4 +2595,3 @@ class GaussianSpectralModel(SpectralModel):
         return a * (np.exp(-(u_min**2)) - np.exp(-(u_max**2))) + b * (
             scipy.special.erf(u_max) - scipy.special.erf(u_min)
         )
-

@@ -9,8 +9,7 @@ import matplotlib.pyplot as plt
 from gammapy.data import GTI
 from gammapy.irf import EDispKernelMap, EDispMap, PSFKernel, PSFMap, RecoPSFMap
 from gammapy.maps import Map, MapAxis
-from gammapy.modeling.models import DatasetModels, FoVBackgroundModel
-from gammapy.modeling.models.IRF import  IRFModel, IRFModels
+from gammapy.modeling.models import DatasetModels, FoVBackgroundModel, IRFModels
 from gammapy.stats import (
     CashCountsStatistic,
     WStatCountsStatistic,
@@ -46,6 +45,7 @@ BINSZ_IRF_DEFAULT = 0.2
 EVALUATION_MODE = "local"
 USE_NPRED_CACHE = True
 E_RECO_N = 10
+
 
 def create_map_dataset_geoms(
     geom,
@@ -195,7 +195,7 @@ class MapDataset(Dataset):
 
     def __init__(
         self,
-        e_reco_n=10, 
+        e_reco_n=10,
         models=None,
         counts=None,
         exposure=None,
@@ -219,7 +219,7 @@ class MapDataset(Dataset):
         self._background_parameters_cached = None
         self._irf_parameters_cached = None
         self._irf_cached = None
-        
+
         self.mask_fit = mask_fit
 
         if psf and not isinstance(psf, (PSFMap, HDULocation)):
@@ -470,14 +470,18 @@ class MapDataset(Dataset):
             self._irf_cached.quantity = exposure.quantity * values.value
         exposure = self._irf_cached
         return exposure
-           
+
     def edisp_helper(self, energy):
-        energy_rebins = MapAxis(nodes =np.logspace(np.log10(energy.center[0].value), 
-                                           np.log10(energy.center[-1].value),
-                                           E_RECO_N *len(energy.center)),
-                        node_type='center',
-                        name = 'energy',
-                       unit = 'TeV')
+        energy_rebins = MapAxis(
+            nodes=np.logspace(
+                np.log10(energy.center[0].value),
+                np.log10(energy.center[-1].value),
+                E_RECO_N * len(energy.center),
+            ),
+            node_type="center",
+            name="energy",
+            unit="TeV",
+        )
         return energy_rebins
 
     def npred_edisp(self):
@@ -490,7 +494,7 @@ class MapDataset(Dataset):
         edisp = self.edisp
         # get the kernel
         edisp_kernel = edisp.get_edisp_kernel()
-        # rebin enenergyaxis 
+        # rebin enenergyaxis
         energy_rebins = self.edisp_helper(edisp_kernel.axes["energy"])
         # compute gaussian with new eaxis
         gaussian = self.irf_model.e_reco_model(
@@ -498,13 +502,22 @@ class MapDataset(Dataset):
         )
         # rebin edisp_kernel data and multiply with gaussian
         data_rebinned = np.matmul(
-            np.repeat(np.repeat(edisp_kernel.data, self.e_reco_n,axis =0), self.e_reco_n, axis =1)
-            , gaussian.data)
+            np.repeat(
+                np.repeat(edisp_kernel.data, self.e_reco_n, axis=0),
+                self.e_reco_n,
+                axis=1,
+            ),
+            gaussian.data,
+        )
         # set as kernel data
-        edisp_kernel.data = data_rebinned.reshape((len(edisp_kernel.axes["energy_true"].center), 
-                                               self.e_reco_n, 
-                                               len(edisp_kernel.axes["energy"].center), 
-                                               self.e_reco_n)).mean(axis=(1, 3))
+        edisp_kernel.data = data_rebinned.reshape(
+            (
+                len(edisp_kernel.axes["energy_true"].center),
+                self.e_reco_n,
+                len(edisp_kernel.axes["energy"].center),
+                self.e_reco_n,
+            )
+        ).mean(axis=(1, 3))
 
         edisp = EDispKernelMap.from_edisp_kernel(edisp_kernel)
         return edisp
@@ -543,7 +556,7 @@ class MapDataset(Dataset):
         if changed:
             self._irf_parameters_cached = values
         return changed
-   
+
     def _background_parameters_changed(self):
         values = self.background_model.parameters.value
         # TODO: possibly allow for a tolerance here?
@@ -578,7 +591,7 @@ class MapDataset(Dataset):
 
         for evaluator in evaluators.values():
             if evaluator.needs_update:
-                print("update")
+                # print("update")
                 evaluator.update(
                     self.exposure,
                     self.psf,
@@ -586,11 +599,11 @@ class MapDataset(Dataset):
                     self._geom,
                     self.mask_image,
                 )
-           
+
             if self.irf_model is not None and self._irf_parameters_changed():
                 edisp = self.edisp
                 exposure = self.exposure
-                
+
                 if self.irf_model.e_reco_model is not None:
                     edisp = self.npred_edisp()
                 if self.irf_model.eff_area_model is not None:
@@ -602,8 +615,7 @@ class MapDataset(Dataset):
                     edisp,
                     self._geom,
                     self.mask_image,
-                    )
-                
+                )
 
             if evaluator.contributes:
                 npred = evaluator.compute_npred()
