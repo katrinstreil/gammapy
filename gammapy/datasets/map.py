@@ -44,7 +44,7 @@ BINSZ_IRF_DEFAULT = 0.2
 
 EVALUATION_MODE = "local"
 USE_NPRED_CACHE = True
-E_RECO_N = 10
+# E_RECO_N = 100
 
 
 def create_map_dataset_geoms(
@@ -195,7 +195,7 @@ class MapDataset(Dataset):
 
     def __init__(
         self,
-        e_reco_n=10,
+        e_reco_n=100,
         models=None,
         counts=None,
         exposure=None,
@@ -476,7 +476,7 @@ class MapDataset(Dataset):
             nodes=np.logspace(
                 np.log10(energy.center[0].value),
                 np.log10(energy.center[-1].value),
-                E_RECO_N * len(energy.center),
+                self.e_reco_n * len(energy.center),
             ),
             node_type="center",
             name="energy",
@@ -591,7 +591,6 @@ class MapDataset(Dataset):
 
         for evaluator in evaluators.values():
             if evaluator.needs_update:
-                # print("update")
                 evaluator.update(
                     self.exposure,
                     self.psf,

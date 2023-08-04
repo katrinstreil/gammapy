@@ -42,9 +42,11 @@ __all__ = [
     "LogParabolaSpectralModel",
     "NaimaSpectralModel",
     "PiecewiseNormSpectralModel",
+    # "PiecewiseNormPenSpectralModel",
     "PowerLaw2SpectralModel",
     "PowerLawNornSpectralModel",
     "PowerLawNormSpectralModel",
+    "PowerLawNormPenSpectralModel",
     "PowerLawNormNuisanceSpectralModel",
     "PowerLawSpectralModel",
     "scale_plot_flux",
@@ -1008,7 +1010,7 @@ class PowerLawNormPenSpectralModel(SpectralModel):
     PowerLawSpectralModel, PowerLaw2SpectralModel
     """
 
-    tag = ["PowerLawNormSpectralModel", "pl-norm"]
+    tag = ["PowerLawNormPenSpectralModel", "pl-norm"]
     norm_nuisance = Parameter(
         "norm_nuisance", 0, unit="", interp="log", is_norm=True, is_penalised=True
     )

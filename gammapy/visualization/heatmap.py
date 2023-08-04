@@ -113,7 +113,8 @@ def annotate_heatmap(
     if threshold is not None:
         threshold = im.norm(threshold)
     else:
-        threshold = im.norm(data.max()) / 2.0
+        # threshold = im.norm(data.max()) / 2.0
+        threshold = 0.8
 
     # Set default alignment to center, but allow it to be
     # overwritten by textkw.
@@ -129,7 +130,9 @@ def annotate_heatmap(
     texts = []
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
+            # kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
             kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
+
             text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
             texts.append(text)
 

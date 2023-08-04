@@ -110,7 +110,6 @@ class MapEvaluator:
         # print("needs update?")
         """Check whether the model component has drifted away from its support."""
         # TODO: simplify and clean up
-        return True
         if isinstance(self.model, TemplateNPredModel):
             return False
         elif not self.contributes:
