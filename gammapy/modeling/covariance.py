@@ -150,7 +150,7 @@ class Covariance:
 
         self._data[np.ix_(idx, idx)] = covar.data
 
-    def plot_correlation(self, ax=None, **kwargs):
+    def plot_correlation(self, ax=None, names=None, **kwargs):
         """Plot correlation matrix.
 
         Parameters
@@ -176,8 +176,8 @@ class Covariance:
         ax = plt.gca() if ax is None else ax
 
         kwargs.setdefault("cmap", "coolwarm")
-
-        names = self.parameters.names
+        if names is None:
+            names = self.parameters.names
         im, cbar = plot_heatmap(
             data=self.correlation,
             col_labels=names,
