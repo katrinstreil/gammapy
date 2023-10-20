@@ -8,7 +8,12 @@ from .cube import (
     TemplateNPredModel,
     create_fermi_isotropic_diffuse_model,
 )
-from .prior import GaussianPriorModel, PriorModel, UniformPriorModel
+from .prior import (
+    GaussianPriorModel,
+    MultiDimensionalPrior,
+    PriorModel,
+    UniformPriorModel,
+)
 from .spatial import (
     ConstantFluxSpatialModel,
     ConstantSpatialModel,
@@ -191,10 +196,7 @@ TEMPORAL_MODEL_REGISTRY = Registry(
 """Registry of temporal models classes."""
 
 PRIOR_MODEL_REGISTRY = Registry(
-    [
-        UniformPriorModel,
-        GaussianPriorModel,
-    ]
+    [UniformPriorModel, GaussianPriorModel, MultiDimensionalPrior]
 )
 """Registry of prior models classes."""
 

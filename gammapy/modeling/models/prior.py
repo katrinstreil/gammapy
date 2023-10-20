@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import astropy.units as u
-from gammapy.modeling import PriorParameter, PriorParameters
+from gammapy.modeling import Parameter, Parameters, PriorParameter, PriorParameters
 from .core import ModelBase
 
 log = logging.getLogger(__name__)
@@ -31,7 +31,15 @@ def _build_priorparameters_from_dict(data, default_parameters):
 class PriorModel(ModelBase):
     _unit = ""
 
-    def __init__(self, **kwargs):
+    def __init__(self, modelparameters, **kwargs):
+
+        if isinstance(modelparameters, Parameter):
+            self._modelparameters = Parameters([modelparameters])
+        elif isinstance(modelparameters, Parameters):
+            self._modelparameters = modelparameters
+        else:
+            raise ValueError(f"Invalid model type {modelparameters}")
+
         # Copy default parameters from the class to the instance
         default_parameters = self.default_parameters.copy()
 
@@ -50,6 +58,13 @@ class PriorModel(ModelBase):
             self._weight = _weight
         else:
             self._weight = 1
+
+        for par in self._modelparameters:
+            par.prior = self
+
+    @property
+    def modelparameters(self):
+        return self._modelparameters
 
     @property
     def parameters(self):
@@ -72,11 +87,19 @@ class PriorModel(ModelBase):
     def weight(self, value):
         self._weight = value
 
-    def __call__(self, value):
+    @property
+    def dimension(self):
+        return self._dimension
+
+    @property
+    def name(self):
+        return self._name
+
+    def __call__(self):
         """Call evaluate method"""
         # assuming the same unit as the PriorParamter here
         kwargs = {par.name: par.value for par in self.parameters}
-        return self.weight * self.evaluate(value.value, **kwargs)
+        return self.weight * self.evaluate(self._modelparameters.value, **kwargs)
 
     def to_dict(self, full_output=False):
         """Create dict for YAML serialisation"""
@@ -124,6 +147,70 @@ class PriorModel(ModelBase):
         return cls.from_parameters(priorparameters, **kwargs)
 
 
+class MultiDimensionalPrior(PriorModel):
+    tag = ["MultiDimensionalPrior"]
+    _type = "prior"
+
+    def __init__(self, modelparameters, covariance_matrix, name):
+        self._modelparameters = modelparameters
+        self._name = name
+
+        # check the shape of the covariance matrix
+        shape = np.shape(covariance_matrix)
+        if len(shape) == 2 and shape[0] == shape[1]:
+            self._dimension = shape[0]
+            self._covariance_matrix = covariance_matrix
+        else:
+            raise ValueError("Covariance matrix must be quadratic.")
+
+        # check if model parameters is the same length as the matrix
+        if len(self._modelparameters) != self._dimension:
+            raise ValueError("dimension mismatch")
+
+        for par in self._modelparameters:
+            par.prior = self
+
+        super().__init__(modelparameters)
+
+    @property
+    def modelparameters(self):
+        return self._modelparameters
+
+    def __call__(self):
+        """Call evaluate method"""
+        return self.evaluate(self._modelparameters.value)
+
+    @property
+    def covariance_matrix(self):
+        return self._covariance_matrix
+
+    def evaluate(self, values):
+        return np.matmul(values, np.matmul(values, self.covariance_matrix))
+
+    # not here, but in PriorModel and test if covariance matrix is set!
+    def to_dict(self, full_output=False):
+        """Create dict for YAML serialisation"""
+        tag = self.tag[0] if isinstance(self.tag, list) else self.tag
+        # params = self.modelparameters.to_dict()
+        # todo: add more information about the modelparameters
+        if full_output:
+            data = {
+                "type": tag,
+                "modelparameters": self.modelparameters.names,
+                "weight": self.weight,
+                "name": self.name,
+            }
+            if self.dimension > 1:
+                data["covariance_matrix"] = self.covariance_matrix
+        else:
+            data = {"type": tag, "name": self.name}
+
+        if self.type is None:
+            return data
+        else:
+            return {self.type: data}
+
+
 class GaussianPriorModel(PriorModel):
     r"""One-dimensional Gaussian Prior Model.
 
@@ -140,15 +227,20 @@ class GaussianPriorModel(PriorModel):
 
     tag = ["GaussianPriorModel"]
     _type = "prior"
+    _dimension = 1
     mu = PriorParameter(name="mu", value=0)
     sigma = PriorParameter(name="sigma", value=1)
 
-    @staticmethod
-    def evaluate(value, mu, sigma):
+    def evaluate(self, value, mu, sigma):
         return ((value - mu) / sigma) ** 2
 
 
 class UniformPriorModel(PriorModel):
+    tag = ["UniformPriorModel"]
+    _type = "prior"
+    _dimension = 1
+    uni = PriorParameter(name="uni", value=0, min=0, max=10, unit="")
+
     r"""Uniform Prior Model.
 
 
@@ -159,10 +251,5 @@ class UniformPriorModel(PriorModel):
         Default is 0
     """
 
-    tag = ["UniformPriorModel"]
-    _type = "prior"
-    uni = PriorParameter(name="uni", value=0, min=0, max=10, unit="")
-
-    @staticmethod
-    def evaluate(value, uni):
+    def evaluate(self, value, uni):
         return uni
