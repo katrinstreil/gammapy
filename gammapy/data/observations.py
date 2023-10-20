@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import collections.abc
 import copy
+import html
 import inspect
 import itertools
 import logging
@@ -14,15 +15,16 @@ from astropy.time import Time
 from astropy.units import Quantity
 from astropy.utils import lazyproperty
 import matplotlib.pyplot as plt
-from gammapy import __version__
 from gammapy.utils.deprecation import GammapyDeprecationWarning, deprecated
 from gammapy.utils.fits import LazyFitsData, earth_location_to_dict
+from gammapy.utils.metadata import CreatorMetaData
 from gammapy.utils.scripts import make_path
 from gammapy.utils.testing import Checker
 from gammapy.utils.time import time_ref_to_dict, time_relative_to_ref
 from .event_list import EventList, EventListChecker
 from .filters import ObservationFilter
 from .gti import GTI
+from .metadata import ObservationMetaData
 from .pointing import FixedPointingInfo
 
 __all__ = ["Observation", "Observations"]
@@ -36,40 +38,46 @@ class Observation:
     Parameters
     ----------
     obs_id : int
-        Observation id
+        Observation id.
     obs_info : dict
-        Observation info dict
+        Observation info dict.
     aeff : `~gammapy.irf.EffectiveAreaTable2D`
-        Effective area
+        Effective area.
     edisp : `~gammapy.irf.EnergyDispersion2D`
-        Energy dispersion
+        Energy dispersion.
     psf : `~gammapy.irf.PSF3D`
-        Point spread function
+        Point spread function.
     bkg : `~gammapy.irf.Background3D`
-        Background rate model
+        Background rate model.
     rad_max: `~gammapy.irf.RadMax2D`
         Only for point-like IRFs: RAD_MAX table (energy dependent RAD_MAX)
         For a fixed RAD_MAX, create a RadMax2D with a single bin.
     gti : `~gammapy.data.GTI`
         Table with GTI start and stop time
     events : `~gammapy.data.EventList`
-        Event list
+        Event list.
     obs_filter : `ObservationFilter`
         Observation filter.
+    pointing : `~gammapy.data.FixedPointingInfo`
+        Pointing information.
+    location : `~astropy.coordinates.EarthLocation`
+        Earth location of the observatory.
     """
 
     aeff = LazyFitsData(cache=False)
     edisp = LazyFitsData(cache=False)
     psf = LazyFitsData(cache=False)
     bkg = LazyFitsData(cache=False)
-    _rad_max = LazyFitsData(cache=False)
+    _rad_max = LazyFitsData(cache=True)
     _events = LazyFitsData(cache=False)
-    _gti = LazyFitsData(cache=False)
+    _gti = LazyFitsData(cache=True)
     _pointing = LazyFitsData(cache=True)
 
+    #    @deprecated_renamed_argument("obs_info", "meta", since="1.2")
     def __init__(
         self,
         obs_id=None,
+        meta=None,
         obs_info=None,
         gti=None,
         aeff=None,
@@ -92,8 +100,22 @@ class Observation:
         self._gti = gti
         self._events = events
         self._pointing = pointing
-        self._location = location
+        self._location = location  # this is part of the meta or is it data?
         self.obs_filter = obs_filter or ObservationFilter()
+        self._meta = meta
+
+    def _repr_html_(self):
+        try:
+            return self.to_html()
+        except AttributeError:
+            return f"<pre>{html.escape(str(self))}</pre>"
+
+    @property
+    def meta(self):
+        """Return metadata container."""
+        if self._meta is None and self.events:
+            self._meta = ObservationMetaData.from_header(self.events.table.meta)
+        return self._meta
 
     @property
     def rad_max(self):
@@ -185,23 +207,25 @@ class Observation:
         Parameters
         ----------
         pointing : `~gammapy.data.FixedPointingInfo` or `~astropy.coordinates.SkyCoord`
-            Pointing information
+            Pointing information.
+        location : `~astropy.coordinates.EarthLocation`
+            Earth location of the observatory.
         obs_id : int
-            Observation ID as identifier
+            Observation ID as identifier.
         livetime : ~astropy.units.Quantity`
-            Livetime exposure of the simulated observation
+            Livetime exposure of the simulated observation.
         tstart: `~astropy.time.Time` or `~astropy.units.Quantity`
             Start time of observation as `~astropy.time.Time` or duration
-            relative to `reference_time`
+            relative to `reference_time`.
         tstop: `astropy.time.Time` or `~astropy.units.Quantity`
             Stop time of observation as `~astropy.time.Time` or duration
-            relative to `reference_time`
+            relative to `reference_time`.
         irfs: dict
-            IRFs used for simulating the observation: `bkg`, `aeff`, `psf`, `edisp`, `rad_max`
+            IRFs used for simulating the observation: `bkg`, `aeff`, `psf`, `edisp`, `rad_max`.
         deadtime_fraction : float, optional
-            Deadtime fraction, defaults to 0
+            Deadtime fraction, defaults to 0.
         reference_time : `~astropy.time.Time`
-            the reference time to use in GTI definition
+            the reference time to use in GTI definition.
 
         Returns
         -------
@@ -223,6 +247,15 @@ class Observation:
             location=location,
         )
 
+        meta = ObservationMetaData(
+            deadtime_fraction=deadtime_fraction,
+            location=location,
+            time_start=gti.time_start[0],
+            time_stop=gti.time_stop[-1],
+            reference_time=reference_time,
+            creation=CreatorMetaData.from_default(),
+        )
+
         if not isinstance(pointing, FixedPointingInfo):
             warnings.warn(
                 "Pointing will be required to be provided as FixedPointingInfo",
@@ -232,6 +265,7 @@ class Observation:
 
         return cls(
             obs_id=obs_id,
+            meta=meta,
             obs_info=obs_info,
             gti=gti,
             aeff=irfs.get("aeff"),
@@ -295,7 +329,7 @@ class Observation:
         The dead-time fraction is used in the live-time computation,
         which in turn is used in the exposure and flux computation.
         """
-        return 1 - self.obs_info["DEADC"]
+        return self.meta.deadtime_fraction
 
     @lazyproperty
     def obs_info(self):
@@ -314,7 +348,7 @@ class Observation:
     @property
     def pointing(self):
         if self._pointing is None:
-            self._pointing = FixedPointingInfo.from_fits_header(self.obs_info)
+            self._pointing = FixedPointingInfo.from_fits_header(self.events.table.meta)
         return self._pointing
 
     def get_pointing_altaz(self, time):
@@ -365,16 +399,19 @@ class Observation:
     @lazyproperty
     def target_radec(self):
         """Target RA / DEC sky coordinates (`~astropy.coordinates.SkyCoord`)."""
-        lon, lat = (
-            self.obs_info.get("RA_OBJ", np.nan),
-            self.obs_info.get("DEC_OBJ", np.nan),
-        )
-        return SkyCoord(lon, lat, unit="deg", frame="icrs")
+        return self.meta.target_position
 
     @property
+    @deprecated(
+        "v1.2",
+        message="Access additional metadata directly in obs.meta.opt.",
+    )
     def muoneff(self):
         """Observation muon efficiency."""
-        return self.obs_info.get("MUONEFF", 1)
+        if "MUONEFF" in self.meta.optional:
+            return self.meta.optional["MUONEFF"]
+        else:
+            raise KeyError("No muon efficiency information.")
 
     def __str__(self):
         pointing = self.get_pointing_icrs(self.tmid)
@@ -508,12 +545,15 @@ class Observation:
         irf_dict = load_irf_dict_from_file(irf_file)
 
         obs_info = events.table.meta
+
+        meta = ObservationMetaData.from_header(obs_info)
         return cls(
             events=events,
             gti=gti,
             obs_info=obs_info,
             obs_id=obs_info.get("OBS_ID"),
             pointing=FixedPointingInfo.from_fits_header(obs_info),
+            meta=meta,
             **irf_dict,
         )
 
@@ -533,13 +573,13 @@ class Observation:
             Whether to include irf components in the output file
         """
         if format != "gadf":
-            raise ValueError(f'Only the "gadf" format supported, got {format}')
+            raise ValueError(f'Only the "gadf" format is supported, got {format}')
 
         path = make_path(path)
 
         primary = fits.PrimaryHDU()
-        primary.header["CREATOR"] = f"Gammapy {__version__}"
-        primary.header["DATE"] = Time.now().iso
+
+        primary.header.update(self.meta.creation.to_header(format))
 
         hdul = fits.HDUList([primary])
 
@@ -627,7 +667,10 @@ class Observations(collections.abc.MutableSequence):
             self.append(obs)
 
     def __getitem__(self, key):
-        return self._observations[self.index(key)]
+        if isinstance(key, slice):
+            return self.__class__(self._observations[key])
+        else:
+            return self._observations[self.index(key)]
 
     def __delitem__(self, key):
         del self._observations[self.index(key)]
