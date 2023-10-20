@@ -16,6 +16,7 @@ from gammapy.stats import (
     cash,
     cash_sum_cython,
     get_wstat_mu_bkg,
+    prior_fit_statistic,
     wstat,
 )
 from gammapy.utils.deprecation import deprecated_renamed_argument
@@ -220,6 +221,7 @@ class MapDataset(Dataset):
     ):
         self._name = make_name(name)
         self._evaluators = {}
+        self._priors = None
 
         self.counts = counts
         self.exposure = exposure
@@ -354,8 +356,22 @@ class MapDataset(Dataset):
                         use_cache=USE_NPRED_CACHE,
                     )
                     self._evaluators[model.name] = evaluator
-
+        self.set_priors_from_models(models)
         self._models = models
+
+    def set_priors_from_models(self, models):
+        if models is not None:
+            self._priors = [
+                par.prior for par in models.parameters if par.prior is not None
+            ]
+        else:
+            self._priors = None
+
+    @property
+    def priors(self):
+        """Priors set on model parameters (list)."""
+        self.set_priors_from_models(self.models)
+        return self._priors
 
     @property
     def evaluators(self):
@@ -1117,10 +1133,17 @@ class MapDataset(Dataset):
         """Total statistic function value given the current model parameters."""
         counts, npred = self.counts.data.astype(float), self.npred().data
 
+        prior_stat_sum = prior_fit_statistic(self.priors)
+
+        print("in map dataset: prior_fit_statistic", prior_stat_sum)
+
         if self.mask is not None:
-            return cash_sum_cython(counts[self.mask.data], npred[self.mask.data])
+            return (
+                cash_sum_cython(counts[self.mask.data], npred[self.mask.data])
+                + prior_stat_sum
+            )
         else:
-            return cash_sum_cython(counts.ravel(), npred.ravel())
+            return cash_sum_cython(counts.ravel(), npred.ravel()) + prior_stat_sum
 
     def fake(self, random_state="random-seed"):
         """Simulate fake counts for the current model and reduced IRFs.
