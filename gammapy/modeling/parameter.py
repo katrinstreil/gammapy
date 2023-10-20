@@ -189,10 +189,6 @@ class Parameter:
                 else:
                     raise TypeError(f"Invalid type: {value!r}")
 
-    def prior_stat_sum(self):
-        if self.prior is not None:
-            return self.prior(self)
-
     @property
     def is_norm(self):
         """Whether the parameter represents the norm of the model"""
@@ -524,17 +520,6 @@ class Parameters(collections.abc.Sequence):
         """Check parameter limits and emit a warning"""
         for par in self:
             par.check_limits()
-
-    @property
-    def prior(self):
-        return [par.prior for par in self]
-
-    def prior_stat_sum(self):
-        parameters_stat_sum = 0
-        for par in self:
-            if par.prior is not None:
-                parameters_stat_sum += par.prior_stat_sum()
-        return parameters_stat_sum
 
     @property
     def types(self):
