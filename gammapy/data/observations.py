@@ -17,7 +17,7 @@ from astropy.utils import lazyproperty
 import matplotlib.pyplot as plt
 from gammapy.utils.deprecation import GammapyDeprecationWarning, deprecated
 from gammapy.utils.fits import LazyFitsData, earth_location_to_dict
-from gammapy.utils.metadata import CreatorMetaData
+from gammapy.utils.metadata import CreatorMetaData, TargetMetaData
 from gammapy.utils.scripts import make_path
 from gammapy.utils.testing import Checker
 from gammapy.utils.time import time_ref_to_dict, time_relative_to_ref
@@ -73,7 +73,6 @@ class Observation:
     _gti = LazyFitsData(cache=True)
     _pointing = LazyFitsData(cache=True)
 
-    #    @deprecated_renamed_argument("obs_info", "meta", since="1.2")
     def __init__(
         self,
         obs_id=None,
@@ -90,8 +89,15 @@ class Observation:
         pointing=None,
         location=None,
     ):
+        if obs_info is not None:
+            warnings.warn(
+                "obs_info argument is deprecated since v1.2. Use meta instead.",
+                GammapyDeprecationWarning,
+            )
+            if meta is None:
+                meta = ObservationMetaData.from_header(obs_info)
+
         self.obs_id = obs_id
-        self._obs_info = obs_info
         self.aeff = aeff
         self.edisp = edisp
         self.psf = psf
@@ -254,6 +260,7 @@ class Observation:
             time_stop=gti.time_stop[-1],
             reference_time=reference_time,
             creation=CreatorMetaData.from_default(),
+            target=TargetMetaData(),
         )
 
         if not isinstance(pointing, FixedPointingInfo):
@@ -266,7 +273,6 @@ class Observation:
         return cls(
             obs_id=obs_id,
             meta=meta,
-            obs_info=obs_info,
             gti=gti,
             aeff=irfs.get("aeff"),
             bkg=irfs.get("bkg"),
@@ -331,19 +337,14 @@ class Observation:
         """
         return self.meta.deadtime_fraction
 
-    @lazyproperty
+    @property
     def obs_info(self):
         """Observation info dictionary."""
-        meta = self._obs_info.copy() if self._obs_info is not None else {}
-        if self.events is not None:
-            meta.update(
-                {
-                    k: v
-                    for k, v in self.events.table.meta.items()
-                    if not k.startswith("HDU")
-                }
-            )
-        return meta
+        warnings.warn(
+            "obs_info property is deprecated since v1.2. Use meta instead.",
+            GammapyDeprecationWarning,
+        )
+        return self.meta.to_header()
 
     @property
     def pointing(self):
@@ -399,7 +400,7 @@ class Observation:
     @lazyproperty
     def target_radec(self):
         """Target RA / DEC sky coordinates (`~astropy.coordinates.SkyCoord`)."""
-        return self.meta.target_position
+        return self.meta.target.position
 
     @property
     @deprecated(
@@ -550,14 +551,15 @@ class Observation:
         return cls(
             events=events,
             gti=gti,
-            obs_info=obs_info,
             obs_id=obs_info.get("OBS_ID"),
             pointing=FixedPointingInfo.from_fits_header(obs_info),
             meta=meta,
             **irf_dict,
         )
 
-    def write(self, path, overwrite=False, format="gadf", include_irfs=True):
+    def write(
+        self, path, overwrite=False, format="gadf", include_irfs=True, checksum=False
+    ):
         """
         Write this observation into `path` using the specified format
 
@@ -565,12 +567,15 @@ class Observation:
         ----------
         path: str or `~pathlib.Path`
             Path for the output file
-        overwrite: bool
-            If true, existing files are overwritten.
+        overwrite: bool, optional
+            Overwrite existing file. Default is False.
         format: str
-            Output format, currently only "gadf" is supported
+            Output format, currently only "gadf" is supported. Default is "gadf".
         include_irfs: bool
-            Whether to include irf components in the output file
+            Whether to include irf components in the output file. Default is True.
+        checksum : bool
+            When True adds both DATASUM and CHECKSUM cards to the headers written to the file.
+            Default is False.
         """
         if format != "gadf":
             raise ValueError(f'Only the "gadf" format is supported, got {format}')
@@ -599,12 +604,12 @@ class Observation:
                 if irf is not None:
                     hdul.append(irf.to_table_hdu(format="gadf-dl3"))
 
-        hdul.writeto(path, overwrite=overwrite)
+        hdul.writeto(path, overwrite=overwrite, checksum=checksum)
 
     def copy(self, in_memory=False, **kwargs):
         """Copy observation
 
-        Overwriting arguments requires the 'in_memory` argument to be true.
+        Overwriting Observation arguments requires the 'in_memory` argument to be true.
 
         Parameters
         ----------
@@ -615,18 +620,14 @@ class Observation:
 
         Examples
         --------
-
-        .. code::
-
-            from gammapy.data import Observation
-
-            obs = Observation.read(
-                "$GAMMAPY_DATA/hess-dl3-dr1/data/hess_dl3_dr1_obs_id_020136.fits.gz"
-            )
-
-            obs_copy = obs.copy(obs_id=1234)
-            print(obs_copy)
-
+        >>>from gammapy.data import Observation
+        >>>
+        >>>obs = Observation.read(
+        >>>    "$GAMMAPY_DATA/hess-dl3-dr1/data/hess_dl3_dr1_obs_id_020136.fits.gz"
+        >>>)
+        >>>
+        >>>obs_copy = obs.copy(in_memory=True, obs_id=1234)
+        >>>print(obs_copy)
 
         Returns
         -------
@@ -635,6 +636,8 @@ class Observation:
         """
         if in_memory:
             argnames = inspect.getfullargspec(self.__init__).args
+            # TODO: remove once obs_info is removed from the list of arguments in __init__
+            argnames.remove("obs_info")
             argnames.remove("self")
 
             for name in argnames:
@@ -663,6 +666,10 @@ class Observations(collections.abc.MutableSequence):
 
     def __init__(self, observations=None):
         self._observations = []
+
+        if observations is None:
+            observations = []
+
         for obs in observations:
             self.append(obs)
 
@@ -786,6 +793,12 @@ class Observations(collections.abc.MutableSequence):
         """
         obs = itertools.chain(*observations_list)
         return cls(list(obs))
+
+    def in_memory_generator(self):
+        """A generator that iterates over observation. Yield an in memory copy of the observation."""
+        for obs in self:
+            obs_copy = obs.copy(in_memory=True)
+            yield obs_copy
 
 
 class ObservationChecker(Checker):

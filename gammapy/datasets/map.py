@@ -1115,7 +1115,11 @@ class MapDataset(Dataset):
         return ax_spatial, ax_spectral
 
     def stat_sum(self):
-        """Total statistic function value given the current model parameters."""
+        """Total statistic function value given the current model parameters and priors."""
+        prior_stat_sum = 0.0
+        if self.models is not None:
+            prior_stat_sum = self.models.parameters.prior_stat_sum()
+
         counts, npred = self.counts.data.astype(float), self.npred().data
 
         prior_stat_sum = prior_fit_statistic(self.priors)
@@ -1256,7 +1260,7 @@ class MapDataset(Dataset):
 
         return cls(**kwargs)
 
-    def write(self, filename, overwrite=False):
+    def write(self, filename, overwrite=False, checksum=False):
         """Write Dataset to file.
 
         A MapDataset is serialised using the GADF format with a WCS geometry.
@@ -1266,10 +1270,15 @@ class MapDataset(Dataset):
         ----------
         filename : str
             Filename to write to.
-        overwrite : bool
-            Overwrite file if it exists.
+        overwrite : bool, optional
+            Overwrite existing file. Default is False.
+        checksum : bool
+            When True adds both DATASUM and CHECKSUM cards to the headers written to the file.
+            Default is False.
         """
-        self.to_hdulist().writeto(str(make_path(filename)), overwrite=overwrite)
+        self.to_hdulist().writeto(
+            str(make_path(filename)), overwrite=overwrite, checksum=checksum
+        )
 
     @classmethod
     def _read_lazy(cls, name, filename, cache, format=format):

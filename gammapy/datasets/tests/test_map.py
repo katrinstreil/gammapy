@@ -5,6 +5,7 @@ import numpy as np
 from numpy.testing import assert_allclose, assert_equal
 import astropy.units as u
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
 from astropy.table import Table
 from regions import CircleSkyRegion
 from gammapy.catalog import SourceCatalog3FHL
@@ -40,6 +41,7 @@ from gammapy.modeling.models import (
     PointSpatialModel,
     PowerLawSpectralModel,
     SkyModel,
+    UniformPrior,
 )
 from gammapy.utils.testing import mpl_plot_check, requires_data, requires_dependency
 
@@ -708,6 +710,29 @@ def test_map_fit(sky_model, geom, geom_etrue):
 
 
 @requires_data()
+def test_prior_stat_sum(sky_model, geom, geom_etrue):
+    dataset = get_map_dataset(geom, geom_etrue, name="test")
+    datasets = Datasets([dataset])
+
+    models = Models(datasets.models)
+    models.insert(0, sky_model)
+
+    datasets.models = models
+    dataset.counts = dataset.npred()
+
+    uniformprior = UniformPrior(min=-np.inf, max=0, weight=1)
+    datasets.models.parameters["amplitude"].prior = uniformprior
+    assert_allclose(datasets.stat_sum(), 12825.9370, rtol=1e-3)
+
+    datasets.models.parameters["amplitude"].value = -1e-12
+    stat_sum_neg = datasets.stat_sum()
+    assert_allclose(stat_sum_neg, 470298.864993, rtol=1e-3)
+
+    datasets.models.parameters["amplitude"].prior.weight = 100
+    assert_allclose(datasets.stat_sum() - stat_sum_neg, 99, rtol=1e-3)
+
+
+@requires_data()
 def test_map_fit_linked(sky_model, geom, geom_etrue):
     dataset_1 = get_map_dataset(geom, geom_etrue, name="test-1")
     dataset_2 = get_map_dataset(geom, geom_etrue, name="test-2")
@@ -1244,6 +1269,17 @@ def test_map_datasets_on_off_fits_io(images, tmp_path):
     assert_allclose(dataset.acceptance_off.data, dataset_new.acceptance_off.data)
     assert_allclose(dataset.exposure.data, dataset_new.exposure.data)
     assert_allclose(dataset.mask_safe, dataset_new.mask_safe)
+
+
+@requires_data()
+def test_map_datasets_on_off_checksum(images, tmp_path):
+    dataset = get_map_dataset_onoff(images)
+    Datasets([dataset]).write(tmp_path / "test.yaml", checksum=True)
+
+    hdul = fits.open(tmp_path / "MapDatasetOnOff-test.fits")
+    for hdu in hdul:
+        assert "CHECKSUM" in hdu.header
+        assert "DATASUM" in hdu.header
 
 
 def test_create_onoff(geom):
