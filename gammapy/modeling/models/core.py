@@ -404,6 +404,19 @@ class DatasetModels(collections.abc.Sequence):
         return Parameters.from_stack([_.parameters for _ in self._models])
 
     @property
+    def priors(self):
+        """Priors (list).
+
+        Duplicate prior objects have been removed.
+        """
+        priors = {}
+
+        for parameter in self.parameters:
+            if parameter.prior is not None:
+                priors[parameter.prior] = parameter.prior
+        return priors
+
+    @property
     def parameters_unique_names(self):
         """List of unique parameter names as model_name.par_type.par_name"""
         names = []
@@ -1124,9 +1137,9 @@ class Models(DatasetModels, collections.abc.MutableSequence):
 
         self._models.insert(idx, model)
 
-    def set_prior(self, parameters, priors):
-        for parameter, prior in zip(parameters, priors):
-            parameter.prior = prior
+    # def set_prior(self, parameters, priors):
+    #    for parameter, prior in zip(parameters, priors):
+    #        parameter.prior = prior
 
 
 class restore_models_status:
