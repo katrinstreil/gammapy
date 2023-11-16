@@ -125,7 +125,6 @@ class Prior(ModelBase):
 
     @classmethod
     def from_dict(cls, data):
-
         from . import PRIOR_REGISTRY
 
         prior_cls = PRIOR_REGISTRY.get_cls(data["type"])
