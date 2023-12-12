@@ -6,6 +6,7 @@ from astropy.coordinates.angle_utilities import angular_separation
 from astropy.utils import lazyproperty
 from regions import CircleSkyRegion
 import matplotlib.pyplot as plt
+from gammapy.irf import PSFKernel
 from gammapy.maps import HpxNDMap, Map, RegionNDMap, WcsNDMap
 from gammapy.modeling.models import PointSpatialModel, TemplateNPredModel
 from .utils import apply_edisp
@@ -164,6 +165,7 @@ class MapEvaluator:
         mask : `~gammapy.maps.Map`
             Mask to apply to the likelihood for fitting.
         """
+        # print("evaluator update")
         # TODO: simplify and clean up
         log.debug("Updating model evaluator")
 
@@ -211,6 +213,23 @@ class MapEvaluator:
             if not self.geom.is_region or self.geom.region is not None:
                 self.update_spatial_oversampling_factor(self.geom)
 
+        self.reset_cache_properties()
+        self._computation_cache = None
+        self._cached_parameter_previous = None
+
+    def convolve_psf_map(self, psf_map_convolve):
+        # self,psf is the psf kernel set on the models position etc. from update
+        psf_kernel_convolve = psf_map_convolve.get_psf_kernel(
+            position=self.model.position,
+            geom=self.psf.psf_kernel_map.geom,
+            containment=PSF_CONTAINMENT,
+            max_radius=PSF_MAX_RADIUS,
+        )
+
+        psf_kernel_conv = PSFKernel(
+            psf_kernel_map=self.psf.psf_kernel_map.convolve(psf_kernel_convolve)
+        )
+        self.psf = psf_kernel_conv
         self.reset_cache_properties()
         self._computation_cache = None
         self._cached_parameter_previous = None

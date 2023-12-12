@@ -471,6 +471,24 @@ class MapDataset(Dataset):
         exposure = self._irf_cached
         return exposure
 
+    def npred_gaussian_psf_map(self):
+        """Predicted PSF kernel
+
+        Returns
+        -------
+        psf : `PSFKernel`
+        """
+        # print("exe npred_psf")
+        psf_map = self.psf
+        # here energyaxis = geom
+        # change
+        gaussian_map = self.irf_model.psf_model(energy_axis=psf_map.psf_map.geom)
+        return gaussian_map
+
+        # psf_kernel_g = gaussian.get_psf_kernel(self.exposure.geom)
+
+        # return psf_kernel.psf_kernel_map.convolve(psf_kernel_g)
+
     def edisp_helper(self, energy):
         energy_rebins = MapAxis(
             nodes=np.logspace(
@@ -491,6 +509,7 @@ class MapDataset(Dataset):
         -------
         irf : `Map`
         """
+        # print("npred_edisp")
         edisp = self.edisp
         # get the kernel
         edisp_kernel = edisp.get_edisp_kernel()
@@ -615,6 +634,8 @@ class MapDataset(Dataset):
                     self._geom,
                     self.mask_image,
                 )
+                if self.irf_model.psf_model is not None:
+                    evaluator.convolve_psf_map(self.npred_gaussian_psf_map())
 
             if evaluator.contributes:
                 npred = evaluator.compute_npred()

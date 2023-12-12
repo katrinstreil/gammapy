@@ -307,12 +307,12 @@ class ParameterEstimator(Estimator):
         parameter = datasets.parameters[parameter]
 
         with datasets.parameters.restore_status():
-
             if not self.reoptimize:
-                datasets.parameters.freeze_all()
+                for p in datasets.parameters:
+                    # pen parameters stay the same as defined.
+                    if p.is_penalised is False:
+                        p.frozen = True  # freeze all non penl. parameters
                 parameter.frozen = False
-            for p in datasets.parameters.penalised_parameters:
-                p.frozen = False
 
             result = self.estimate_best_fit(datasets, parameter)
             for p in datasets.parameters.free_parameters:

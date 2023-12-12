@@ -1470,6 +1470,95 @@ class PiecewiseNormSpectralModel(SpectralModel):
         return cls(norms=parameters, **kwargs)
 
 
+class PiecewiseNormOneSpectralModel(SpectralModel):
+    """Piecewise spectral correction
+        adding +1 to the norm to allow for log interp while still nuisance pars around zero
+       with a free normalization at each fixed energy nodes.
+
+       For more information see :ref:`piecewise-norm-spectral`.
+
+    Parameters
+    ----------
+    energy : `~astropy.units.Quantity`
+        Array of energies at which the model values are given (nodes).
+    norms : `~numpy.ndarray` or list of `Parameter`
+        Array with the initial norms of the model at energies ``energy``.
+        A normalisation parameters is created for each value.
+        Default is one at each node.
+    interp : str
+        Interpolation scaling in {"log", "lin"}. Default is "log"
+    """
+
+    tag = ["PiecewiseNormSpectralModel", "piecewise-norm"]
+
+    def __init__(
+        self,
+        energy,
+        interp,
+        norms=None,
+    ):
+        self._energy = energy
+        self._interp = interp
+
+        if norms is None:
+            norms = np.zeros(len(energy))
+
+        if len(norms) != len(energy):
+            raise ValueError("dimension mismatch")
+
+        if len(norms) < 2:
+            raise ValueError("Input arrays must contain at least 2 elements")
+
+        if not isinstance(norms[0], Parameter):
+            parameters = Parameters(
+                [Parameter(f"norm_{k}", norm) for k, norm in enumerate(norms)]
+            )
+        else:
+            parameters = Parameters(norms)
+
+        self.default_parameters = parameters
+        super().__init__()
+
+    @property
+    def energy(self):
+        """Energy nodes"""
+        return self._energy
+
+    @property
+    def norms(self):
+        """Norm values"""
+        return u.Quantity(self.parameters.value) + 1
+
+    def evaluate(self, energy, **norms):
+        scale = interpolation_scale(scale=self._interp)
+        e_eval = scale(np.atleast_1d(energy.value))
+        e_nodes = scale(self.energy.to(energy.unit).value)
+        v_nodes = scale(self.norms)
+        log_interp = scale.inverse(np.interp(e_eval, e_nodes, v_nodes))
+        return log_interp
+
+    def to_dict(self, full_output=False):
+        data = super().to_dict(full_output=full_output)
+        data["spectral"]["energy"] = {
+            "data": self.energy.data.tolist(),
+            "unit": str(self.energy.unit),
+        }
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create model from dict"""
+        data = data["spectral"]
+        energy = u.Quantity(data["energy"]["data"], data["energy"]["unit"])
+        parameters = Parameters.from_dict(data["parameters"])
+        return cls.from_parameters(parameters, energy=energy)
+
+    @classmethod
+    def from_parameters(cls, parameters, **kwargs):
+        """Create model from parameters"""
+        return cls(norms=parameters, **kwargs)
+
+
 class PiecewiseNormPenSpectralModel(SpectralModel):
     """Piecewise spectral correction
        with a free normalization at each fixed energy nodes.
@@ -1490,7 +1579,7 @@ class PiecewiseNormPenSpectralModel(SpectralModel):
 
     tag = ["PiecewiseNormPenSpectralModel", "piecewise-norm"]
 
-    def __init__(self, energy, norms=None, interp="log"):
+    def __init__(self, energy, norms=None, interp="lin"):
         self._energy = energy
         self._interp = interp
 

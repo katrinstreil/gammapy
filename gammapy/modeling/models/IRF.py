@@ -2,6 +2,7 @@
 """Spectral models for Gammapy."""
 import numpy as np
 from scipy.interpolate import interp2d
+import astropy.units as u
 from gammapy.maps import Map
 from gammapy.modeling import Covariance, Parameter, Parameters
 from gammapy.modeling.models.spectral import PowerLawNormPenSpectralModel
@@ -21,10 +22,12 @@ class IRFModels(ModelBase):
         self,
         e_reco_model=None,
         eff_area_model=None,
+        psf_model=None,
         datasets_names=None,
     ):
         self.e_reco_model = e_reco_model
         self.eff_area_model = eff_area_model
+        self.psf_model = psf_model
         self.datasets_names = datasets_names
 
         super().__init__()
@@ -36,7 +39,7 @@ class IRFModels(ModelBase):
 
     @property
     def _models(self):
-        models = self.e_reco_model, self.eff_area_model
+        models = self.e_reco_model, self.eff_area_model, self.psf_model
         return [model for model in models if model is not None]
 
     @property
@@ -82,6 +85,9 @@ class IRFModels(ModelBase):
         if self.eff_area_model is not None:
             data.update(self.eff_area_model.to_dict(full_output))
 
+        if self.psf_model is not None:
+            data.update(self.psf_model.to_dict(full_output))
+
         return data
 
     @classmethod
@@ -104,10 +110,20 @@ class IRFModels(ModelBase):
         else:
             e_reco_model = None
 
+        # psf_model_model_data = data.get("psf_model_model")
+
+        # if psf_model_model_data is not None:
+        #    psf_model_model = ERecoIRFModel.from_dict(
+        #        {"PSFIRFModel": psf_model_model_data}
+        #    )
+        # else:
+        #    psf_model_model = None
+
         return cls(
             # name=data["name"],
             e_reco_model=e_reco_model,
             eff_area_model=eff_area_model,
+            # psf_model=psf_model,
             datasets_names=data.get("datasets_names"),
         )
 
@@ -129,6 +145,12 @@ class IRFModels(ModelBase):
         else:
             eff_area_model_type = ""
         str_ += "\t{:26}: {}\n".format("Eff area  model type", eff_area_model_type)
+
+        if self.psf_model is not None:
+            psf_model_type = self.psf_model.__class__.__name__
+        else:
+            psf_model_type = ""
+        str_ += "\t{:26}: {}\n".format("PSF model type", psf_model_type)
 
         str_ += "\tParameters:\n"
         info = _get_parameters_str(self.parameters)
@@ -168,6 +190,30 @@ class ERecoIRFModel(IRFModel):
             bias=bias.value,
         )
         return gaussian
+
+
+class PSFIRFModel(IRFModel):
+    sigma_psf = Parameter("sigma_psf", "1e-3", unit="deg", is_penalised=True)
+
+    tag = ["PSFIRFModel", "psf"]
+    _type = "psf_model"
+
+    @staticmethod
+    def evaluate(geom, sigma_psf):
+        from gammapy.irf import PSFMap
+
+        print("compute gaussian for  sigma 1e-3 + ", sigma_psf)
+        energy_axis_true = geom.axes["energy_true"]
+        rad_axis = geom.axes["rad"]
+
+        psf_map_g = PSFMap.from_gauss(
+            energy_axis_true=energy_axis_true,
+            sigma=1e-3 * u.deg + sigma_psf * u.deg,
+            geom=geom.to_image(),
+            rad_axis=rad_axis,
+        )
+
+        return psf_map_g
 
 
 class EffAreaIRFModel(ModelBase):
