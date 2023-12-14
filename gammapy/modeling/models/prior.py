@@ -92,7 +92,7 @@ class Prior(ModelBase):
         """Call evaluate method"""
         # assuming the same unit as the PriorParameter here
         kwargs = {par.name: par.value for par in self.parameters}
-        return self.weight * self.evaluate(self._modelparameters.value, **kwargs)
+        return self.weight * self.evaluate(self._modelparameters.value[0], **kwargs)
 
     def to_dict(self, full_output=False):
         """Create dict for YAML serialisation"""
@@ -141,6 +141,75 @@ class Prior(ModelBase):
         kwargs["modelparameters"] = data["modelparameters"]
 
         return prior_cls.from_parameters(priorparameters, **kwargs)
+
+
+class MultiVariantePrior(Prior):
+    r"""Multi-dimensional Prior.
+
+
+    Parameters
+    ----------
+    inv_cov : array
+        Inverted Covariance Matrix
+    """
+
+    tag = ["MultiVariantePrior"]
+    _type = "prior"
+
+    def __init__(self, modelparameters, covariance_matrix, name):
+        self._modelparameters = modelparameters
+        self.name = name
+
+        # check the shape of the covariance matrix
+        shape = np.shape(covariance_matrix)
+        if len(shape) == 2 and shape[0] == shape[1]:
+            self._dimension = shape[0]
+            self._covariance_matrix = covariance_matrix
+        else:
+            raise ValueError("Covariance matrix must be quadratic.")
+
+        # check if model parameters is the same length as the matrix
+        if len(self._modelparameters) != self._dimension:
+            raise ValueError("dimension mismatch")
+
+        for par in self._modelparameters:
+            par.prior = self
+
+        super().__init__(self._modelparameters)
+
+    def __call__(self):
+        """Call evaluate method"""
+        return self.evaluate(self._modelparameters.value)
+
+    @property
+    def covariance_matrix(self):
+        return self._covariance_matrix
+
+    def evaluate(self, values):
+        return np.matmul(values, np.matmul(values, self.covariance_matrix))
+
+    # not here, but in PriorModel and test if covariance matrix is set!
+    def to_dict(self, full_output=False):
+        """Create dict for YAML serialisation"""
+        tag = self.tag[0] if isinstance(self.tag, list) else self.tag
+        # params = self.modelparameters.to_dict()
+        # todo: add more information about the modelparameters
+        if full_output:
+            data = {
+                "type": tag,
+                "modelparameters": self.modelparameters.names,
+                "weight": self.weight,
+                "name": self.name,
+            }
+            if self.dimension > 1:
+                data["covariance_matrix"] = self.covariance_matrix
+        else:
+            data = {"type": tag, "name": self.name}
+
+        if self.type is None:
+            return data
+        else:
+            return {self.type: data}
 
 
 class GaussianPrior(Prior):

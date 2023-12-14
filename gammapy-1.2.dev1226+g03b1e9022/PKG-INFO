@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: gammapy
+Version: 1.2.dev1226+g03b1e9022
+Summary: A Python package for gamma-ray astronomy
+Home-page: https://gammapy.org
+Author: The Gammapy developers
+Author-email: gammapy-coordination-l@in2p3.fr
+License: BSD 3-Clause
+Platform: any
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+Provides-Extra: all
+Provides-Extra: all_no_ray
+Provides-Extra: cov
+Provides-Extra: test
+Provides-Extra: docs
+License-File: LICENSE.rst
+
+
+* Webpage: https://gammapy.org
+* Documentation: https://docs.gammapy.org
+* Code: https://github.com/gammapy/gammapy
+
+Gammapy is an open-source Python package for gamma-ray astronomy built on Numpy, Scipy and Astropy.
+It is the base library for the science analysis tools of the Cherenkov Telescope Array Observatory
+and can also be used to analyse data from existing gamma-ray telescopes.

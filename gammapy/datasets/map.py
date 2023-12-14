@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from gammapy.data import GTI
 from gammapy.irf import EDispKernelMap, EDispMap, PSFKernel, PSFMap, RecoPSFMap
 from gammapy.maps import LabelMapAxis, Map, MapAxis
-from gammapy.modeling.models import DatasetModels, FoVBackgroundModel
+from gammapy.modeling.models import DatasetModels, FoVBackgroundModel, IRFModels
 from gammapy.stats import (
     CashCountsStatistic,
     WStatCountsStatistic,
@@ -207,6 +207,7 @@ class MapDataset(Dataset):
 
     def __init__(
         self,
+        e_reco_n=100,
         models=None,
         counts=None,
         exposure=None,
@@ -226,6 +227,8 @@ class MapDataset(Dataset):
         self.background = background
         self._background_cached = None
         self._background_parameters_cached = None
+        self._irf_parameters_cached = None
+        self._irf_cached = None
 
         self.mask_fit = mask_fit
 
@@ -247,12 +250,20 @@ class MapDataset(Dataset):
         self.gti = gti
         self.models = models
         self.meta_table = meta_table
+        self.e_reco_n = e_reco_n
 
     # TODO: keep or remove?
     @property
     def background_model(self):
         try:
             return self.models[f"{self.name}-bkg"]
+        except (ValueError, TypeError):
+            pass
+
+    @property
+    def irf_model(self):
+        try:
+            return self.models[f"{self.name}-irf"]
         except (ValueError, TypeError):
             pass
 
@@ -346,7 +357,9 @@ class MapDataset(Dataset):
             models = models.select(datasets_names=self.name)
 
             for model in models:
-                if not isinstance(model, FoVBackgroundModel):
+                if not isinstance(model, FoVBackgroundModel) and not isinstance(
+                    model, IRFModels
+                ):
                     evaluator = MapEvaluator(
                         model=model,
                         evaluation_mode=EVALUATION_MODE,
@@ -450,6 +463,89 @@ class MapDataset(Dataset):
         npred_total.data[npred_total.data < 0.0] = 0
         return npred_total
 
+    def npred_exposure(self):
+        """Predicted exposure map
+        Returns
+        -------
+        exposure : `Map`
+        """
+        exposure = self.exposure
+        values = self.irf_model.eff_area_model.evaluate_geom(geom=self.exposure.geom)
+        if self._irf_cached is None:
+            self._irf_cached = exposure * values
+        else:
+            self._irf_cached.quantity = exposure.quantity * values.value
+        exposure = self._irf_cached
+        return exposure
+
+    def npred_gaussian_psf_map(self):
+        """Predicted PSF kernel
+        Returns
+        -------
+        psf : `PSFKernel`
+        """
+        # print("exe npred_psf")
+        psf_map = self.psf
+        # here energyaxis = geom
+        # change
+        gaussian_map = self.irf_model.psf_model(energy_axis=psf_map.psf_map.geom)
+        return gaussian_map
+
+        # psf_kernel_g = gaussian.get_psf_kernel(self.exposure.geom)
+
+        # return psf_kernel.psf_kernel_map.convolve(psf_kernel_g)
+
+    def edisp_helper(self, energy):
+        energy_rebins = MapAxis(
+            nodes=np.logspace(
+                np.log10(energy.center[0].value),
+                np.log10(energy.center[-1].value),
+                self.e_reco_n * len(energy.center),
+            ),
+            node_type="center",
+            name="energy",
+            unit="TeV",
+        )
+        return energy_rebins
+
+    def npred_edisp(self):
+        """Predicted edisp map
+        Returns
+        -------
+        irf : `Map`
+        """
+        # print("npred_edisp")
+        edisp = self.edisp
+        # get the kernel
+        edisp_kernel = edisp.get_edisp_kernel()
+        # rebin enenergyaxis
+        energy_rebins = self.edisp_helper(edisp_kernel.axes["energy"])
+        # compute gaussian with new eaxis
+        gaussian = self.irf_model.e_reco_model(
+            energy_axis=energy_rebins,
+        )
+        # rebin edisp_kernel data and multiply with gaussian
+        data_rebinned = np.matmul(
+            np.repeat(
+                np.repeat(edisp_kernel.data, self.e_reco_n, axis=0),
+                self.e_reco_n,
+                axis=1,
+            ),
+            gaussian.data,
+        )
+        # set as kernel data
+        edisp_kernel.data = data_rebinned.reshape(
+            (
+                len(edisp_kernel.axes["energy_true"].center),
+                self.e_reco_n,
+                len(edisp_kernel.axes["energy"].center),
+                self.e_reco_n,
+            )
+        ).mean(axis=(1, 3))
+
+        edisp = EDispKernelMap.from_edisp_kernel(edisp_kernel)
+        return edisp
+
     def npred_background(self):
         """Predicted background counts.
 
@@ -476,6 +572,14 @@ class MapDataset(Dataset):
             return background
 
         return background
+
+    def _irf_parameters_changed(self):
+        values = self.irf_model.parameters.value
+        # TODO: possibly allow for a tolerance here?
+        changed = ~np.all(self._irf_parameters_cached == values)
+        if changed:
+            self._irf_parameters_cached = values
+        return changed
 
     def _background_parameters_changed(self):
         values = self.background_model.parameters.value
@@ -525,6 +629,25 @@ class MapDataset(Dataset):
                     self._geom,
                     self.mask_image,
                 )
+
+            if self.irf_model is not None and self._irf_parameters_changed():
+                edisp = self.edisp
+                exposure = self.exposure
+
+                if self.irf_model.e_reco_model is not None:
+                    edisp = self.npred_edisp()
+                if self.irf_model.eff_area_model is not None:
+                    exposure = self.npred_exposure()
+
+                evaluator.update(
+                    exposure,
+                    self.psf,
+                    edisp,
+                    self._geom,
+                    self.mask_image,
+                )
+                if self.irf_model.psf_model is not None:
+                    evaluator.convolve_psf_map(self.npred_gaussian_psf_map())
 
             if evaluator.contributes:
                 npred = evaluator.compute_npred()
@@ -1117,13 +1240,12 @@ class MapDataset(Dataset):
         counts, npred = self.counts.data.astype(float), self.npred().data
         prior_stat_sum = 0.0
         if self.models is not None:
-            prior_stat_sum = prior_fit_statistic(self.models.priors)
+            prior_stat_sum = float(prior_fit_statistic(self.models.priors))
 
         if self.mask is not None:
-            return (
-                cash_sum_cython(counts[self.mask.data], npred[self.mask.data])
-                + prior_stat_sum
-            )
+            return cash_sum_cython(
+                counts[self.mask.data], npred[self.mask.data]
+            ) + float(prior_stat_sum)
         else:
             return cash_sum_cython(counts.ravel(), npred.ravel()) + prior_stat_sum
 

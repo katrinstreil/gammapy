@@ -1,0 +1,216 @@
+{
+    "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+    "@type": "SoftwareSourceCode",
+    "author": [
+        {
+            "@id": "https://orcid.org/0000-0001-8816-4920",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Departament de F\u00edsica Qu\u00e0ntica i Astrof\u00edsica, Institut de Ci\u00e8ncies del Cosmos (ICCUB), Universitat de Barcelona (IEEC-UB), Spain"
+            },
+            "familyName": "Aguasca-Cabot",
+            "givenName": "Arnau"
+        },
+        {
+            "@id": "https://orcid.org/0000-0003-4568-7005",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Center for Astrophysics | Harvard & Smithsonian, USA"
+            },
+            "familyName": "Donath",
+            "givenName": "Axel"
+        },
+        {
+            "@id": "https://orcid.org/0000-0003-1476-3714",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Universit\u00e9 Paris Cit\u00e9, CNRS, Astroparticule et Cosmologie, F-75013 Paris, France"
+            },
+            "familyName": "Feijen",
+            "givenName": "Kirsty"
+        },
+        {
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Universit\u00e9 Paris-Saclay, CNRS/IN2P3, IJCLab, 91405 Orsay, France"
+            },
+            "familyName": "Gr\u00e9aux",
+            "givenName": "Lucas"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-3395-3647",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Universit\u00e9 Paris Cit\u00e9, CNRS, Astroparticule et Cosmologie, F-75013 Paris, France"
+            },
+            "familyName": "Giunti",
+            "givenName": "Luca"
+        },
+        {
+            "@id": "https://orcid.org/0000-0001-6876-5577",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Universit\u00e9 Paris Cit\u00e9, CNRS, Astroparticule et Cosmologie, F-75013 Paris, France"
+            },
+            "familyName": "Kh\u00e9lifi",
+            "givenName": "Bruno"
+        },
+        {
+            "@id": "https://orcid.org/0000-0001-7993-8189",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Astroparticle Physics Group, TU Dortmund University, Germany"
+            },
+            "familyName": "Linhoff",
+            "givenName": "Maximilian"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-0755-0609",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Astroparticle Physics Group, TU Dortmund University, Germany"
+            },
+            "familyName": "Mender",
+            "givenName": "Simone"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-9667-8654",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Nuclear Physics, Heidelberg, Germany"
+            },
+            "familyName": "Mohrmann",
+            "givenName": "Lars"
+        },
+        {
+            "@id": "https://orcid.org/0000-0001-8375-1907",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Institut de F\u00edsica d'Altes Energies (IFAE), The Barcelona Institute of Science and Technology, Campus UAB, 08193 Bellaterra (Barcelona), Spain"
+            },
+            "familyName": "Nigro",
+            "givenName": "Cosimo"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-9105-0518",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Nuclear Physics, Heidelberg, Germany"
+            },
+            "familyName": "Olivera-Nieto",
+            "givenName": "Laura"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-3869-2925",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "INAF/IASF PALERMO, Italy"
+            },
+            "familyName": "Pintore",
+            "givenName": "Fabio"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-3844-6003",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Universit\u00e9 Paris Cit\u00e9, CNRS, Astroparticule et Cosmologie, F-75013 Paris, France"
+            },
+            "familyName": "Regeard",
+            "givenName": "Maxime"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-8815-6530",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Nuclear Physics, Heidelberg, Germany"
+            },
+            "familyName": "Remy",
+            "givenName": "Quentin"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-9238-7163",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "EMFTEL department and IPARCOS, Universidad Complutense de Madrid, 28040 Madrid, Spain"
+            },
+            "familyName": "Sinha",
+            "givenName": "Atreyee"
+        },
+        {
+            "@id": "https://orcid.org/0009-0005-7886-1825",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Friedrich-Alexander-Universit\u00e4t Erlangen-N\u00fcrnberg, ECAP, Nikolaus-Fiebiger-Str. 2, 91058 Erlangen, Germany"
+            },
+            "familyName": "Streil",
+            "givenName": "Katrin"
+        },
+        {
+            "@id": "https://orcid.org/0000-0002-8219-4667",
+            "@type": "Person",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Universit\u00e9 Paris Cit\u00e9, CNRS, Astroparticule et Cosmologie, F-75013 Paris, France"
+            },
+            "familyName": "Terrier",
+            "givenName": "R\u00e9gis"
+        }
+    ],
+    "codeRepository": "https://github.com/gammapy/gammapy",
+    "datePublished": "2023-06-13",
+    "description": "Gammapy analyzes gamma-ray data and creates sky images, spectra and lightcurves, from event lists and instrument response information; it can also determine the position, morphology and spectra of gamma-ray sources. It is used to analyze data from H.E.S.S., Fermi-LAT, HAWC, and the Cherenkov Telescope Array (CTA).",
+    "identifier": "https://doi.org/10.5281/zenodo.4701488",
+    "keywords": [
+        "Astronomy",
+        "Gamma-rays",
+        "Data analysis"
+    ],
+    "license": "https://spdx.org/licenses/BSD-3-Clause",
+    "name": "Gammapy: Python toolbox for gamma-ray astronomy",
+    "url": "https://gammapy.org/",
+    "softwareVersion": "v1.1",
+    "maintainer": {
+        "@id": "https://orcid.org/0000-0003-4568-7005",
+        "@type": "Person",
+        "affiliation": {
+            "@type": "Organization",
+            "name": "Center for Astrophysics | Harvard & Smithsonian, USA"
+        },
+        "familyName": "Donath",
+        "givenName": "Axel"
+    },
+    "readme": "https://gammapy.org",
+    "issueTracker": "https://github.com/gammapy/gammapy/issues",
+    "developmentStatus": [
+        "active"
+    ],
+    "email": "GAMMAPY-COORDINATION-L@IN2P3.FR",
+    "softwareRequirements": [
+        "numpy>=1.21",
+        "scipy>=1.5,!=1.10",
+        "astropy>=5.0",
+        "regions>=0.5.0",
+        "pyyaml>=5.3",
+        "click>=7.0",
+        "pydantic>=1.4,<2.0",
+        "iminuit>=2.8.0",
+        "matplotlib>=3.4"
+    ],
+    "referencePublication": "https://doi.org/10.1051/0004-6361/202346488"
+}

@@ -1236,7 +1236,7 @@ class PiecewiseNormSpectralModel(SpectralModel):
         e_nodes = scale(self.energy.to(energy.unit).value)
         v_nodes = scale(self.norms)
         log_interp = scale.inverse(np.interp(e_eval, e_nodes, v_nodes))
-        return self._norm.quantity * log_interp
+        return self._norm.quantity + log_interp
 
     def to_dict(self, full_output=False):
         data = super().to_dict(full_output=full_output)
