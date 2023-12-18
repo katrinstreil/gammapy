@@ -191,12 +191,7 @@ TEMPORAL_MODEL_REGISTRY = Registry(
 )
 """Registry of temporal models classes."""
 
-PRIOR_REGISTRY = Registry(
-    [
-        UniformPrior,
-        GaussianPrior,
-    ]
-)
+PRIOR_REGISTRY = Registry([UniformPrior, GaussianPrior, MultiVariantePrior])
 """Registry of prior classes."""
 
 MODEL_REGISTRY = Registry([SkyModel, FoVBackgroundModel, TemplateNPredModel])

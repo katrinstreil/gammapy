@@ -200,9 +200,8 @@ class MultiVariantePrior(Prior):
                 "modelparameters": self.modelparameters.names,
                 "weight": self.weight,
                 "name": self.name,
+                "covariance_matrix": self.covariance_matrix,
             }
-            if self.dimension > 1:
-                data["covariance_matrix"] = self.covariance_matrix
         else:
             data = {"type": tag, "name": self.name}
 
@@ -210,6 +209,27 @@ class MultiVariantePrior(Prior):
             return data
         else:
             return {self.type: data}
+
+    @classmethod
+    def from_dict(cls, data):
+        from . import PRIOR_REGISTRY
+
+        prior_cls = PRIOR_REGISTRY.get_cls(data["prior"]["type"])
+        kwargs = {}
+
+        if data["prior"]["type"] not in prior_cls.tag:
+            raise ValueError(
+                f"Invalid model type {data['type']} for class {cls.__name__}"
+            )
+        priorparameters = _build_priorparameters_from_dict(
+            data["parameters"], prior_cls.default_parameters
+        )
+        kwargs["weight"] = data["weight"]
+        kwargs["modelparameters"] = data["modelparameters"]
+        kwargs["covariance_matrix"] = data["covariance_matrix"]
+        kwargs["name"] = data["name"]
+
+        return prior_cls.from_parameters(priorparameters, **kwargs)
 
 
 class GaussianPrior(Prior):

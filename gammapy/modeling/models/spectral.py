@@ -1193,7 +1193,7 @@ class PiecewiseNormSpectralModel(SpectralModel):
 
     tag = ["PiecewiseNormSpectralModel", "piecewise-norm"]
 
-    def __init__(self, energy, norms=None, interp="log"):
+    def __init__(self, energy, norms=None, interp="lin"):
         self._energy = energy
         self._interp = interp
         self._norm = Parameter(

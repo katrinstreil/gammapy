@@ -466,7 +466,7 @@ class Parameter:
 
         if self._link_label_io is not None:
             output["link"] = self._link_label_io
-        if self.prior is not None:
+        if self.prior is not None and not isinstance(self.prior, dict):
             output["prior"] = self.prior.to_dict()
         return output
 

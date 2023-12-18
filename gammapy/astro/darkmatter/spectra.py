@@ -72,7 +72,7 @@ class PrimaryFlux(TemplateNDSpectralModel):
         "V->tau": r"V->\[Tau]",
     }
 
-    table_filename = "$GAMMAPY_DATA/dark_matter_spectra/AtProduction_gammas.dat"
+    table_filename = "/home/hpc/caph/mppi045h/GAMMAPY_DATA/dark_matter_spectra/AtProduction_gammas.dat"
 
     tag = ["PrimaryFlux", "dm-pf"]
 
@@ -230,7 +230,7 @@ class DarkMatterAnnihilationSpectralModel(SpectralModel):
         "scale",
         1,
         unit="",
-        interp="log",
+        interp="lin",
         is_norm=True,
     )
     tag = ["DarkMatterAnnihilationSpectralModel", "dm-annihilation"]
