@@ -85,7 +85,15 @@ class MapCoord:
     def shape(self):
         """Coordinate array shape."""
         arrays = [_ for _ in self._data.values()]
-        return np.broadcast(*arrays).shape
+
+        if len(arrays) <= 2:
+            shape = np.broadcast(*arrays).shape
+        else:
+            shape = np.broadcast(*arrays[:1]).shape
+            shape *= len(arrays[2])
+            shape = [sum(shape)]
+        return shape
+        # return np.broadcast(*arrays).shape
 
     @property
     def size(self):

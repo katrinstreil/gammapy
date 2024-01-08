@@ -1603,6 +1603,114 @@ class TemplateNDSpatialModel(SpatialModel):
         return data
 
 
+class PiecewiseNorm3DModel(SpatialModel):
+    tag = ["PiecewiseNorm3DModel", "piecewise-norm"]
+
+    def __init__(self, coords, energy, norms=None, interp="lin", **kwargs):
+        self._energy = energy
+        self._coords = coords.copy()
+        self._coords["lon"] = Angle(coords.lon).wrap_at(0 * u.deg)
+        self._wrap_angle = (coords.lon.max() - coords.lon.min()) / 2
+        self._coords["lon"] = Angle(coords.lon).wrap_at(self._wrap_angle)
+        self._interp = interp
+
+        dim = sum(coords.shape * len(self._energy))
+        if norms is None:
+            norms = np.zeros(dim)
+
+        if len(norms) != dim:
+            raise ValueError("dimension mismatch")
+
+        if len(norms) < 4:
+            raise ValueError("Input arrays must contain at least 4 elements")
+
+        if not isinstance(norms[0], Parameter):
+            parameters = Parameters(
+                [Parameter(f"norm_{k}", norm) for k, norm in enumerate(norms)]
+            )
+        else:
+            parameters = Parameters(norms)
+        self.default_parameters = parameters
+        super().__init__(**kwargs)
+
+    @property
+    def coords(self):
+        """Energy nodes"""
+        return self._coords
+
+    def set_coords(self, coords):
+        self._coords = coords
+
+    @property
+    def norms(self):
+        """Norm values"""
+        return u.Quantity([p.quantity for p in self.parameters])
+
+    @property
+    def is_energy_dependent(self):
+        return True
+
+    @property
+    def frame(self):
+        return "galactic"
+
+    @property
+    def energy(self):
+        """Energy nodes"""
+        return self._energy
+
+    def evaluate(self, lon, lat, energy=None, **norms):
+        norms_ = self.norms.value.reshape(len(self._energy), self._coords.shape[0])
+        print(np.max(norms_))
+        idx_energies = np.where(energy == self._energy)[0]
+        interpolateds = np.tile(np.zeros_like((lon, lat))[0], (len(self._energy), 1, 1))
+
+        for idx_energy in idx_energies:
+            e_norms = norms_[idx_energy]
+            """Evaluate the model at given coordinates."""
+            scale = interpolation_scale(scale=self._interp)
+            v_nodes = scale(e_norms + 1.0)
+            coords = [value.value for value in self.coords._data.values()]
+            # TODO: apply axes scaling in this loop
+            coords = list(zip(*coords))
+            lon = Angle(lon).wrap_at(self._wrap_angle)
+            # by default rely on CloughTocher2DInterpolator
+            # (Piecewise cubic, C1 smooth, curvature-minimizing interpolant)
+            interpolated = griddata(coords, v_nodes, (lon, lat), method="cubic")
+            interpolateds[idx_energy] = interpolated
+            # print(interpolateds)
+        return scale.inverse(interpolateds) * self.norms.unit
+
+    def to_dict(self, full_output=False):
+        data = super().to_dict(full_output=full_output)
+        for key, value in self.coords._data.items():
+            data["spatial"][key] = {
+                "data": value.data.tolist(),
+                "unit": str(value.unit),
+            }
+
+        data["spatial"]["energy"] = {
+            "data": self.energy.data.tolist(),
+            "unit": str(self.energy.unit),
+        }
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create model from dict"""
+        data = data["spatial"]
+        lon = u.Quantity(data["lon"]["data"], data["lon"]["unit"])
+        lat = u.Quantity(data["lat"]["data"], data["lat"]["unit"])
+        coords = MapCoord.create((lon, lat))
+
+        parameters = Parameters.from_dict(data["parameters"])
+        energy = u.Quantity(data["energy"]["data"], data["energy"]["unit"])
+
+        return cls.from_parameters(
+            parameters, coords=coords, energy=energy, frame=data["frame"]
+        )
+
+
 class PiecewiseNormSpatialModel(SpatialModel):
     """Piecewise spatial correction
        with a free normalization at each fixed nodes.
@@ -1641,7 +1749,6 @@ class PiecewiseNormSpatialModel(SpatialModel):
 
         if self.is_energy_dependent:
             raise ValueError("Energy dependent nodes are not supported")
-
         if not isinstance(norms[0], Parameter):
             parameters = Parameters(
                 [Parameter(f"norm_{k}", norm) for k, norm in enumerate(norms)]
@@ -1656,6 +1763,9 @@ class PiecewiseNormSpatialModel(SpatialModel):
         """Energy nodes"""
         return self._coords
 
+    def set_coords(self, coords):
+        self._coords = coords
+
     @property
     def norms(self):
         """Norm values"""
@@ -1669,7 +1779,7 @@ class PiecewiseNormSpatialModel(SpatialModel):
     def evaluate(self, lon, lat, energy=None, **norms):
         """Evaluate the model at given coordinates."""
         scale = interpolation_scale(scale=self._interp)
-        v_nodes = scale(self.norms.value)
+        v_nodes = scale(self.norms.value + 1.0)
         coords = [value.value for value in self.coords._data.values()]
         # TODO: apply axes scaling in this loop
         coords = list(zip(*coords))
