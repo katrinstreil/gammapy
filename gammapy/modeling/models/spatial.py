@@ -1661,8 +1661,10 @@ class PiecewiseNorm3DModel(SpatialModel):
 
     def evaluate(self, lon, lat, energy=None, **norms):
         norms_ = self.norms.value.reshape(len(self._energy), self._coords.shape[0])
-        print(np.max(norms_))
-        idx_energies = np.where(energy == self._energy)[0]
+        print("self._interp", self._interp)
+        # idx_energies = np.where(energy == self._energy)[0]
+        idx_energies = np.where(np.isclose(energy, self._energy, 1e-3))[0]
+
         interpolateds = np.tile(np.zeros_like((lon, lat))[0], (len(self._energy), 1, 1))
 
         for idx_energy in idx_energies:
@@ -1701,6 +1703,7 @@ class PiecewiseNorm3DModel(SpatialModel):
         data = data["spatial"]
         lon = u.Quantity(data["lon"]["data"], data["lon"]["unit"])
         lat = u.Quantity(data["lat"]["data"], data["lat"]["unit"])
+
         coords = MapCoord.create((lon, lat))
 
         parameters = Parameters.from_dict(data["parameters"])
