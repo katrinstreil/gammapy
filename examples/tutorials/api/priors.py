@@ -12,7 +12,7 @@ Prerequisites
    the :doc:`/tutorials/analysis-1d/spectral_analysis` tutorial.
 -  Knowledge of fitting models to datasets, see
    :doc:`/tutorials/api/fitting` tutorial
--  General knowledge of statistics and priors
+-  General knowledge of statistics and priors (see [ref](https://doi.org/10.1146/annurev.nucl.57.090506.123052))
 
 Context
 -------
