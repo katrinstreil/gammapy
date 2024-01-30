@@ -390,7 +390,7 @@ class Fit:
             "fit_results": fit_results,
         }
 
-    def stat_surface(self, datasets, x, y, reoptimize=False):
+    def stat_surface(self, datasets, x, y, reoptimize=False, saved_infos_par=None):
         """Compute fit statistic surface.
 
         The method used is to vary two parameters, keeping all others fixed.
@@ -408,6 +408,9 @@ class Fit:
             Parameters of interest
         reoptimize : bool
             Re-optimize other parameters, when computing the confidence region.
+        saved_infos_par: list or None
+            parameters which are getting reopitmized and I want to save the information for
+
 
         Returns
         -------
@@ -422,20 +425,35 @@ class Fit:
 
         stats = []
         fit_results = []
+        saved_infos_par_dict = dict()
+        if saved_infos_par is not None:
+            for s in saved_infos_par:
+                name = datasets.models.parameters_unique_names[
+                    datasets.parameters.index(s)
+                ]
+                saved_infos_par_dict[name] = []
 
         with parameters.restore_status():
             for x_value, y_value in progress_bar(
                 itertools.product(x.scan_values, y.scan_values), desc="Trial values"
             ):
                 x.value, y.value = x_value, y_value
+                print("x_value", x_value, "y_value", y_value)
 
                 if reoptimize:
                     x.frozen, y.frozen = True, True
                     result = self.optimize(datasets=datasets)
                     stat = result.total_stat
                     fit_results.append(result)
+                    if saved_infos_par is not None:
+                        for s, n in zip(saved_infos_par, saved_infos_par_dict.keys()):
+                            saved_infos_par_dict[n].append([s.value, s.error])
+
                 else:
                     stat = datasets.stat_sum()
+                    if saved_infos_par is not None:
+                        for s, n in zip(saved_infos_par, saved_infos_par_dict.keys()):
+                            saved_infos_par_dict[n].append([s.value, s.error])
 
                 stats.append(stat)
 
@@ -454,6 +472,7 @@ class Fit:
             f"{name_y}_scan": y.scan_values,
             "stat_scan": stats,
             "fit_results": fit_results,
+            "saved_infos_par_dict": saved_infos_par_dict,
         }
 
     def stat_contour(self, datasets, x, y, numpoints=10, sigma=1):
