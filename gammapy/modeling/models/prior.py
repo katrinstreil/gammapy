@@ -2,7 +2,9 @@
 import logging
 import numpy as np
 import astropy.units as u
+from astropy.table import Table
 from gammapy.modeling import Parameter, Parameters, PriorParameter, PriorParameters
+from gammapy.utils.scripts import make_path
 from .core import ModelBase
 
 log = logging.getLogger(__name__)
@@ -118,7 +120,7 @@ class Prior(ModelBase):
             "type": tag,
             "parameters": params,
             "weight": self.weight,
-            "modelparameters": self._modelparameters,
+            "modelparameters": self._modelparameters.names,
         }
 
         return data
@@ -141,6 +143,28 @@ class Prior(ModelBase):
         kwargs["modelparameters"] = data["modelparameters"]
 
         return prior_cls.from_parameters(priorparameters, **kwargs)
+
+
+def read_ndimprior_cov(path, **kwargs):
+    """Read covariance data from file
+
+    Parameters
+    ----------
+    path : str or `Path`
+        Base path
+    returns: covariance_matrix and model_parameters.names
+
+    """
+    kwargs = dict(
+        format="ascii.fixed_width",
+        delimiter="|",
+    )
+    t = Table.read(path, **kwargs)
+    model_parameters = t["modelparameters"].data
+    t.remove_column("modelparameters")
+    arr = np.array(t)
+    covariance_matrix = arr.view(float).reshape(arr.shape + (-1,))
+    return covariance_matrix, model_parameters
 
 
 class MultiVariantePrior(Prior):
@@ -175,6 +199,8 @@ class MultiVariantePrior(Prior):
         for par in self._modelparameters:
             par.prior = self
 
+        self._file = None
+
         super().__init__(self._modelparameters)
 
     def __call__(self):
@@ -203,33 +229,59 @@ class MultiVariantePrior(Prior):
                 "covariance_matrix": self.covariance_matrix,
             }
         else:
-            data = {"type": tag, "name": self.name}
+            data = {
+                "type": tag,
+                "name": self.name,
+                "modelparameters": self.modelparameters.names,
+                "weight": self.weight,
+                "file": self._file,
+            }
 
-        if self.type is None:
-            return data
-        else:
-            return {self.type: data}
+        # if self.type is None:
+        return data
+        # else:
+        #    return {self.type: data}
 
-    @classmethod
+    @staticmethod
     def from_dict(cls, data):
         from . import PRIOR_REGISTRY
 
-        prior_cls = PRIOR_REGISTRY.get_cls(data["prior"]["type"])
+        print(data)
+        prior_cls = PRIOR_REGISTRY.get_cls(data["type"])
         kwargs = {}
+        print(data)
 
-        if data["prior"]["type"] not in prior_cls.tag:
+        if data["type"] not in cls.tag:
             raise ValueError(
                 f"Invalid model type {data['type']} for class {cls.__name__}"
             )
-        priorparameters = _build_priorparameters_from_dict(
-            data["parameters"], prior_cls.default_parameters
-        )
-        kwargs["weight"] = data["weight"]
-        kwargs["modelparameters"] = data["modelparameters"]
-        kwargs["covariance_matrix"] = data["covariance_matrix"]
-        kwargs["name"] = data["name"]
+        covariance_matrix, model_parameters = read_ndimprior_cov(data["file"])
+        if model_parameters == data["modelparameters"]:
+            modelparameters = data["modelparameters"]
+            kwargs["covariance_matrix"] = covariance_matrix
+            kwargs["weight"] = data["weight"]
+            kwargs["name"] = data["name"]
 
-        return prior_cls.from_parameters(priorparameters, **kwargs)
+        return prior_cls.from_parameters(modelparameters, covariance_matrix, **kwargs)
+
+    def write_ndimprior_cov(self, filename, **kwargs):
+        """Write covariancematrix to file
+
+        Parameters
+        ----------
+        filename : str
+            Filename
+
+        """
+        names = self.modelparameters.names
+        table = Table()
+        table["modelparameters"] = names
+
+        for idx, name in enumerate(names):
+            values = self.covariance_matrix[idx]
+            table[str(idx)] = values
+
+        table.write(make_path(filename), **kwargs)
 
 
 class GaussianPrior(Prior):
@@ -250,6 +302,7 @@ class GaussianPrior(Prior):
     _type = "prior"
     mu = PriorParameter(name="mu", value=0)
     sigma = PriorParameter(name="sigma", value=1)
+    _dimension = 1
 
     def evaluate(self, value, mu, sigma):
         return ((value - mu) / sigma) ** 2
@@ -277,6 +330,7 @@ class UniformPrior(Prior):
     _type = "prior"
     min = PriorParameter(name="min", value=-np.inf, unit="")
     max = PriorParameter(name="max", value=np.inf, unit="")
+    _dimension = 1
 
     def evaluate(self, value, min, max):
         if min < value < max:

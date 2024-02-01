@@ -181,8 +181,12 @@ class Parameter:
 
             # creating Prior out of dict
             if isinstance(value, dict):
-
+                # in case of a 1D prior, the 0st model par name is self, self is set as modelparameters
+                if len(value["modelparameters"]) == 1:
+                    if value["modelparameters"][0] == self.name:
+                        value["modelparameters"] = Parameters([self])
                 value = Prior.from_dict(value)
+
                 if self in value.modelparameters:
                     self._prior = value
 
@@ -699,8 +703,11 @@ class Parameters(collections.abc.Sequence):
 
         for par in data:
             link_label = par.pop("link", None)
+            prior = par.pop("prior", None)
+            print("prior", prior)
             parameter = Parameter(**par)
             parameter._link_label_io = link_label
+            parameter.prior = prior
             parameters.append(parameter)
 
         return cls(parameters=parameters)

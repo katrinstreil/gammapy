@@ -3,8 +3,8 @@
 import numpy as np
 import astropy.units as u
 from gammapy.modeling import Covariance, Parameter, Parameters
+from gammapy.modeling.models import ModelBase
 from gammapy.modeling.parameter import _get_parameters_str
-from .core import ModelBase
 
 __all__ = ["IRFModels", "IRFModel", "ERecoIRFModel"]
 
@@ -168,6 +168,44 @@ class IRFModel(ModelBase):
         # kwargs = self._convert_evaluate_unit(kwargs, energy)
         return self.evaluate(energy_axis, **kwargs)
 
+    @classmethod
+    def from_dict(cls, data):
+        kwargs = {}
+        key0 = next(iter(data))
+        if key0 in ["e_reco_model", "ERecoIRFModel"]:
+            data = data[key0]
+
+            if data["type"] not in cls.tag:
+                raise ValueError(
+                    f"Invalid model type {data['type']} for class {cls.__name__}"
+                )
+            from gammapy.modeling.models.core import _build_parameters_from_dict
+
+            parameters = _build_parameters_from_dict(
+                data["parameters"], cls.default_parameters
+            )
+
+            return cls.from_parameters(parameters, **kwargs)
+
+        if key0 in ["eff_area_model", "EffAreaIRFModel"]:
+            data = data[key0]
+            print("data", data)
+
+            if data["type"] not in cls.tag:
+                raise ValueError(
+                    f"Invalid model type {data['type']} for class {cls.__name__}"
+                )
+
+            spectral_data = data.get("spectral")
+            if spectral_data is not None:
+                from gammapy.modeling.models import SPECTRAL_MODEL_REGISTRY
+
+                model_class = SPECTRAL_MODEL_REGISTRY.get_cls(spectral_data["type"])
+                spectral_model = model_class.from_dict({"spectral": spectral_data})
+            else:
+                spectral_model = None
+            return cls(spectral_model=spectral_model)
+
 
 class ERecoIRFModel(IRFModel):
     bias = Parameter("bias", "0")
@@ -213,7 +251,7 @@ class PSFIRFModel(IRFModel):
         return psf_map_g
 
 
-class EffAreaIRFModel(ModelBase):
+class EffAreaIRFModel(IRFModel):
     tag = ["EffAreaIRFModel", "effarea"]
     _type = "eff_area_model"
 
@@ -242,3 +280,9 @@ class EffAreaIRFModel(ModelBase):
     def evaluate(self, energy):
         """Evaluate model"""
         return self.spectral_model(energy) + 1.0
+
+    def to_dict(self, full_output=False):
+        data = {}
+        data["type"] = self.tag[0]
+        data.update(self.spectral_model.to_dict(full_output=full_output))
+        return {self.type: data}

@@ -80,6 +80,8 @@ __all__ = [
     "DatasetModels",
     "DiskSpatialModel",
     "EBLAbsorptionNormSpectralModel",
+    "EffAreaIRFModel",
+    "ERecoIRFModel",
     "ExpCutoffPowerLaw3FGLSpectralModel",
     "ExpCutoffPowerLawNormSpectralModel",
     "ExpCutoffPowerLawSpectralModel",
@@ -91,6 +93,7 @@ __all__ = [
     "GeneralizedGaussianSpatialModel",
     "GeneralizedGaussianTemporalModel",
     "integrate_spectrum",
+    "IRFModels",
     "LightCurveTemplateTemporalModel",
     "LinearTemporalModel",
     "LogParabolaNormSpectralModel",
@@ -197,5 +200,7 @@ TEMPORAL_MODEL_REGISTRY = Registry(
 PRIOR_REGISTRY = Registry([UniformPrior, GaussianPrior, MultiVariantePrior])
 """Registry of prior classes."""
 
-MODEL_REGISTRY = Registry([SkyModel, FoVBackgroundModel, TemplateNPredModel])
+IRF_REGEISTRY = Registry([EffAreaIRFModel, ERecoIRFModel, IRFModels])
+
+MODEL_REGISTRY = Registry([SkyModel, FoVBackgroundModel, TemplateNPredModel, IRFModels])
 """Registry of model classes"""

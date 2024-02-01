@@ -487,6 +487,7 @@ class DatasetModels(collections.abc.Sequence):
         full_output=False,
         overwrite_templates=False,
         write_covariance=True,
+        write_mulitnprior=True,
     ):
         """Write to YAML file.
 
@@ -521,6 +522,15 @@ class DatasetModels(collections.abc.Sequence):
             )
             self.write_covariance(base_path / filecovar, **kwargs)
             self._covar_file = filecovar
+        if write_mulitnprior and self.priors is not None:
+            for p in self.priors:
+                if p._dimension > 1:
+                    fileprior = path.stem + f"_{p.name}.dat"
+                    kwargs = dict(
+                        format="ascii.fixed_width", delimiter="|", overwrite=overwrite
+                    )
+                    p.write_ndimprior_cov(base_path / fileprior, **kwargs)
+                    p._file = str(base_path / fileprior)
 
         path.write_text(self.to_yaml(full_output, overwrite_templates))
 
@@ -604,7 +614,6 @@ class DatasetModels(collections.abc.Sequence):
         arr = np.array(t)
         data = arr.view(float).reshape(arr.shape + (-1,))
         self.covariance = data
-        self._covar_file = filename
 
     def write_covariance(self, filename, **kwargs):
         """Write covariance to file
