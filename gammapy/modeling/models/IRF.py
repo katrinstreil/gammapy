@@ -189,7 +189,6 @@ class IRFModel(ModelBase):
 
         if key0 in ["eff_area_model", "EffAreaIRFModel"]:
             data = data[key0]
-            print("data", data)
 
             if data["type"] not in cls.tag:
                 raise ValueError(

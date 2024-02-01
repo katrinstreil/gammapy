@@ -121,6 +121,7 @@ class Prior(ModelBase):
             "parameters": params,
             "weight": self.weight,
             "modelparameters": self._modelparameters.names,
+            "dimension": self._dimension,
         }
 
         return data
@@ -224,45 +225,41 @@ class MultiVariantePrior(Prior):
             data = {
                 "type": tag,
                 "modelparameters": self.modelparameters.names,
-                "weight": self.weight,
                 "name": self.name,
-                "covariance_matrix": self.covariance_matrix,
             }
         else:
             data = {
                 "type": tag,
                 "name": self.name,
                 "modelparameters": self.modelparameters.names,
-                "weight": self.weight,
                 "file": self._file,
+                "dimension": self._dimension,
             }
 
-        # if self.type is None:
         return data
-        # else:
-        #    return {self.type: data}
 
-    @staticmethod
+    @classmethod
     def from_dict(cls, data):
         from . import PRIOR_REGISTRY
 
-        print(data)
         prior_cls = PRIOR_REGISTRY.get_cls(data["type"])
         kwargs = {}
-        print(data)
 
         if data["type"] not in cls.tag:
             raise ValueError(
                 f"Invalid model type {data['type']} for class {cls.__name__}"
             )
         covariance_matrix, model_parameters = read_ndimprior_cov(data["file"])
-        if model_parameters == data["modelparameters"]:
-            modelparameters = data["modelparameters"]
-            kwargs["covariance_matrix"] = covariance_matrix
-            kwargs["weight"] = data["weight"]
-            kwargs["name"] = data["name"]
 
-        return prior_cls.from_parameters(modelparameters, covariance_matrix, **kwargs)
+        if np.array(
+            [m in data["modelparameters"].names for m in model_parameters]
+        ).all():
+            modelparameters = data["modelparameters"]
+            kwargs["name"] = data["name"]
+        else:
+            raise TypeError(f"Invalid modelparameter: {model_parameters}")
+
+        return prior_cls(modelparameters, covariance_matrix, **kwargs)
 
     def write_ndimprior_cov(self, filename, **kwargs):
         """Write covariancematrix to file

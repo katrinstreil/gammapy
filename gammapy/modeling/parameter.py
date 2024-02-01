@@ -177,18 +177,20 @@ class Parameter:
     @prior.setter
     def prior(self, value):
         if value is not None:
-            from .models import Prior
+            from .models import MultiVariantePrior, Prior
 
             # creating Prior out of dict
             if isinstance(value, dict):
                 # in case of a 1D prior, the 0st model par name is self, self is set as modelparameters
-                if len(value["modelparameters"]) == 1:
+                if value["dimension"] == 1:
                     if value["modelparameters"][0] == self.name:
                         value["modelparameters"] = Parameters([self])
-                value = Prior.from_dict(value)
-
-                if self in value.modelparameters:
-                    self._prior = value
+                        value = Prior.from_dict(value)
+                    else:
+                        raise TypeError(f"Invalid modelparameter: {value}")
+                else:
+                    # in case of ndimprior just transform, checks come later
+                    value = MultiVariantePrior.from_dict(data=value)
 
             # testing of self in prior.modelparameter
             if isinstance(value, Prior):
@@ -700,15 +702,34 @@ class Parameters(collections.abc.Sequence):
     @classmethod
     def from_dict(cls, data):
         parameters = []
+        multidimpriors = dict()
 
         for par in data:
             link_label = par.pop("link", None)
             prior = par.pop("prior", None)
-            print("prior", prior)
             parameter = Parameter(**par)
             parameter._link_label_io = link_label
-            parameter.prior = prior
+            if prior is not None:
+                if prior["dimension"] == 1:
+                    parameter.prior = prior
+                else:
+                    # first time creating the priors dict
+                    if prior["name"] not in multidimpriors.keys():
+                        multidimpriors[prior["name"]] = dict()
+                        multidimpriors[prior["name"]]["prior"] = prior
+                        multidimpriors[prior["name"]]["modelparameters"] = [parameter]
+                    else:
+                        multidimpriors[prior["name"]]["modelparameters"].append(
+                            parameter
+                        )
             parameters.append(parameter)
+        for prior_name in multidimpriors.keys():
+            modelparameters = cls(
+                parameters=multidimpriors[prior_name]["modelparameters"]
+            )
+            multidimpriors[prior_name]["prior"]["modelparameters"] = modelparameters
+            for modelparameter in modelparameters:
+                modelparameter.prior = multidimpriors[prior_name]["prior"]
 
         return cls(parameters=parameters)
 
