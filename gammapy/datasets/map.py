@@ -505,6 +505,7 @@ class MapDataset(Dataset):
             node_type="center",
             name="energy",
             unit="TeV",
+            interp="log",
         )
         return energy_rebins
 
