@@ -82,9 +82,13 @@ class ParameterEstimator(Estimator):
                 * parameter.name_err: covariance-based error estimate on parameter value
         """
         value, total_stat, success, error = np.nan, 0.0, False, np.nan
-
+        print("in parameter estimate best fit")
+        print(datasets.models)
         if np.any(datasets.contributes_to_stat):
             result = self.fit.run(datasets=datasets)
+            print("models after fit:")
+            print(datasets.models)
+
             value, error = parameter.value, parameter.error
             total_stat = result.optimize_result.total_stat
             success = result.success

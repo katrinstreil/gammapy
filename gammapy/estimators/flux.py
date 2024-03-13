@@ -175,7 +175,6 @@ class FluxEstimator(ParameterEstimator):
         """
         datasets = Datasets(datasets)
         models = datasets.models.copy()
-
         model = self.get_scale_model(models)
 
         energy_min, energy_max = datasets.energy_ranges
