@@ -8,7 +8,7 @@ import gammapy.utils.parallel as parallel
 from gammapy.datasets import Datasets
 from gammapy.maps import MapAxis
 from gammapy.modeling import Fit
-from gammapy.modeling.models import Models
+from gammapy.modeling.models import IRFModels, Models
 from ..flux import FluxEstimator
 from .core import FluxPoints
 
@@ -181,6 +181,13 @@ class FluxPointsEstimator(FluxEstimator, parallel.ParallelMixin):
 
         if len(datasets_sliced) > 0:
             models = Models(datasets.models.copy())
+            if datasets[0].irf_model is not None:
+                irf = IRFModels(
+                    eff_area_model=datasets.irf_model.eff_area_model.copy(),
+                    e_reco_model=datasets.irf_model.e_reco_model.copy(),
+                    datasets_names=datasets_sliced.name,
+                )
+                models.append(irf)
             datasets_sliced.models = models
             return super().run(datasets=datasets_sliced)
         else:
