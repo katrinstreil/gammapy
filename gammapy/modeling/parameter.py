@@ -117,6 +117,8 @@ class Parameter:
         interp="lin",
         is_norm=False,
         prior=None,
+        error_n=None,
+        error_p=None,
     ):
         if not isinstance(name, str):
             raise TypeError(f"Name must be string, got '{type(name)}' instead")
@@ -149,6 +151,8 @@ class Parameter:
         self.interp = interp
         self.scale_method = scale_method
         self._prior = prior
+        self._error_n = error_n
+        self._error_p = error_p
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -219,6 +223,22 @@ class Parameter:
     @error.setter
     def error(self, value):
         self._error = float(u.Quantity(value, unit=self.unit).value)
+
+    @property
+    def error_n(self):
+        return self._error_n
+
+    @error_n.setter
+    def error_n(self, value):
+        self._error_n = float(u.Quantity(value, unit=self.unit).value)
+
+    @property
+    def error_p(self):
+        return self._error_p
+
+    @error_p.setter
+    def error_p(self, value):
+        self._error_p = float(u.Quantity(value, unit=self.unit).value)
 
     @property
     def name(self):
@@ -474,6 +494,11 @@ class Parameter:
             output["link"] = self._link_label_io
         if self.prior is not None and not isinstance(self.prior, dict):
             output["prior"] = self.prior.to_dict()
+        if self.error_n is not None:
+            output["error_n"] = self.error_n
+        if self.error_p is not None:
+            output["error_p"] = self.error_p
+
         return output
 
     def autoscale(self):
