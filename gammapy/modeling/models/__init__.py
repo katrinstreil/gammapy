@@ -26,6 +26,7 @@ from .spatial import (
     TemplateSpatialModel,
 )
 from .spectral import (
+    BrokenPowerLawNormSpectralModel,
     BrokenPowerLawSpectralModel,
     CompoundSpectralModel,
     ConstantSpectralModel,
@@ -69,6 +70,7 @@ from .temporal import (
 
 __all__ = [
     "BrokenPowerLawSpectralModel",
+    "BrokenPowerLawNormSpectralModel",
     "CompoundSpectralModel",
     "ConstantFluxSpatialModel",
     "ConstantSpatialModel",
@@ -160,6 +162,7 @@ SPECTRAL_MODEL_REGISTRY = Registry(
         CompoundSpectralModel,
         PowerLawSpectralModel,
         PowerLaw2SpectralModel,
+        BrokenPowerLawNormSpectralModel,
         BrokenPowerLawSpectralModel,
         SmoothBrokenPowerLawSpectralModel,
         PiecewiseNormSpectralModel,
