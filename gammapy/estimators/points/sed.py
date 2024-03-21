@@ -181,11 +181,12 @@ class FluxPointsEstimator(FluxEstimator, parallel.ParallelMixin):
 
         if len(datasets_sliced) > 0:
             models = Models(datasets.models.copy())
-            if datasets[0].irf_model is not None:
+            if datasets[0].irf_model is not None and 0:
+                # note only works for the irf of the first dataset!
                 irf = IRFModels(
-                    eff_area_model=datasets.irf_model.eff_area_model.copy(),
-                    e_reco_model=datasets.irf_model.e_reco_model.copy(),
-                    datasets_names=datasets_sliced.name,
+                    eff_area_model=datasets[0].irf_model.eff_area_model.copy(),
+                    e_reco_model=datasets[0].irf_model.e_reco_model.copy(),
+                    datasets_names=datasets_sliced[0].name,
                 )
                 models.append(irf)
             datasets_sliced.models = models

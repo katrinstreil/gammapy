@@ -83,7 +83,6 @@ class ParameterEstimator(Estimator):
         """
         value, total_stat, success, error = np.nan, 0.0, False, np.nan
         print("in parameter estimate best fit")
-        print(datasets.models)
         if np.any(datasets.contributes_to_stat):
             result = self.fit.run(datasets=datasets)
             print("models after fit:")
@@ -118,6 +117,8 @@ class ParameterEstimator(Estimator):
                 * "ts" : fit statistic difference with null hypothesis
                 * "npred" : predicted number of counts per dataset
         """
+        print("in estimate_ts")
+
         npred = self.estimate_npred(datasets=datasets)
 
         if not np.any(datasets.contributes_to_stat):
@@ -159,6 +160,8 @@ class ParameterEstimator(Estimator):
                 * {parameter.name}_errp : positive error on parameter value
                 * {parameter.name}_errn : negative error on parameter value
         """
+        print("in estimate_errn_errp")
+
         if not np.any(datasets.contributes_to_stat):
             return {
                 f"{parameter.name}_errp": np.nan,
@@ -197,6 +200,8 @@ class ParameterEstimator(Estimator):
                 * parameter.name_scan : parameter values scan
                 * "stat_scan" : fit statistic values scan
         """
+        print("in estimate_scan")
+
         scan_values = parameter.scan_values
 
         if not np.any(datasets.contributes_to_stat):
@@ -233,6 +238,8 @@ class ParameterEstimator(Estimator):
 
                 * parameter.name_ul : upper limit on parameter value
         """
+        print("in estimate_ul")
+
         if not np.any(datasets.contributes_to_stat):
             return {f"{parameter.name}_ul": np.nan}
 
