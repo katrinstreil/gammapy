@@ -107,6 +107,8 @@ class Parameter:
         max=np.nan,
         frozen=False,
         error=0,
+        error_n=None,
+        error_p=None,
         scan_min=None,
         scan_max=None,
         scan_n_values=11,
@@ -127,6 +129,8 @@ class Parameter:
         self.max = max
         self.frozen = frozen
         self._error = error
+        self._error_n = error_n
+        self._error_p = error_p
         self._is_norm = is_norm
         self._is_penalised = is_penalised
         self._type = None
@@ -189,6 +193,22 @@ class Parameter:
     @error.setter
     def error(self, value):
         self._error = float(u.Quantity(value, unit=self.unit).value)
+
+    @property
+    def error_n(self):
+        return self._error_n
+
+    @error_n.setter
+    def error_n(self, value):
+        self._error_n = float(u.Quantity(value, unit=self.unit).value)
+
+    @property
+    def error_p(self):
+        return self._error_p
+
+    @error_p.setter
+    def error_p(self, value):
+        self._error_p = float(u.Quantity(value, unit=self.unit).value)
 
     @property
     def name(self):
@@ -438,6 +458,12 @@ class Parameter:
 
         if self._link_label_io is not None:
             output["link"] = self._link_label_io
+
+        if self._error_n is not None:
+            output["error_n"] = self._error_n
+
+        if self._error_p is not None:
+            output["error_p"] = self._error_p
 
         return output
 
