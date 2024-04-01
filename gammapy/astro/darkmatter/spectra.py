@@ -70,13 +70,18 @@ class PrimaryFlux(TemplateNDSpectralModel):
         "V->e": "V->e",
         "V->mu": r"V->\[Mu]",
         "V->tau": r"V->\[Tau]",
+        "RHNlight": "RHNlight",
+        "RHNheavy": "RHNheavy",
     }
-
-    table_filename = "/home/hpc/caph/mppi045h/GAMMAPY_DATA/dark_matter_spectra/AtProduction_gammas.dat"
 
     tag = ["PrimaryFlux", "dm-pf"]
 
-    def __init__(self, mDM, channel):
+    def __init__(self, mDM, channel, table_filename=None):
+
+        if table_filename is None:
+            self.table_filename = "/home/hpc/caph/mppi045h/GAMMAPY_DATA/dark_matter_spectra/AtProduction_gammas.dat"
+        else:
+            self.table_filename = table_filename
 
         self.table_path = make_path(self.table_filename)
         if not self.table_path.exists():
@@ -107,8 +112,9 @@ class PrimaryFlux(TemplateNDSpectralModel):
         region_map = RegionNDMap.create(
             region=None, axes=[log10x_axis, mass_axis], data=self.table[channel_name]
         )
+        interp_kwargs = {"extrapolate": True, "fill_value": 0, "values_scale": "lin"}
 
-        super().__init__(region_map)
+        super().__init__(region_map, interp_kwargs=interp_kwargs)
         self.mDM = mDM
         self.mass.frozen = True
 
@@ -235,13 +241,24 @@ class DarkMatterAnnihilationSpectralModel(SpectralModel):
     )
     tag = ["DarkMatterAnnihilationSpectralModel", "dm-annihilation"]
 
-    def __init__(self, mass, channel, scale=scale.quantity, jfactor=1, z=0, k=2):
+    def __init__(
+        self,
+        mass,
+        channel,
+        scale=scale.quantity,
+        jfactor=1,
+        z=0,
+        k=2,
+        table_filename=None,
+    ):
         self.k = k
         self.z = z
         self.mass = u.Quantity(mass)
         self.channel = channel
         self.jfactor = u.Quantity(jfactor)
-        self.primary_flux = PrimaryFlux(mass, channel=self.channel)
+        self.primary_flux = PrimaryFlux(
+            mass, channel=self.channel, table_filename=table_filename
+        )
         super().__init__(scale=scale)
 
     def evaluate(self, energy, scale):
