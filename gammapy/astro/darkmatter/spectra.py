@@ -256,8 +256,9 @@ class DarkMatterAnnihilationSpectralModel(SpectralModel):
         self.mass = u.Quantity(mass)
         self.channel = channel
         self.jfactor = u.Quantity(jfactor)
+        self.table_filename = table_filename
         self.primary_flux = PrimaryFlux(
-            mass, channel=self.channel, table_filename=table_filename
+            mass, channel=self.channel, table_filename=self.table_filename
         )
         super().__init__(scale=scale)
 
@@ -283,6 +284,8 @@ class DarkMatterAnnihilationSpectralModel(SpectralModel):
         data["spectral"]["jfactor"] = self.jfactor.to_string()
         data["spectral"]["z"] = self.z
         data["spectral"]["k"] = self.k
+        data["spectral"]["table_filename"] = self.table_filename
+
         return data
 
     @classmethod
@@ -386,6 +389,7 @@ class DarkMatterDecaySpectralModel(SpectralModel):
         data["spectral"]["mass"] = self.mass.to_string()
         data["spectral"]["jfactor"] = self.jfactor.to_string()
         data["spectral"]["z"] = self.z
+
         return data
 
     @classmethod
