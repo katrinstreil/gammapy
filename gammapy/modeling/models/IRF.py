@@ -29,6 +29,9 @@ class IRFModels(ModelBase):
 
         super().__init__()
 
+    def reassign(self, new_datasets_names):
+        self.datasets_names = new_datasets_names
+
     @property
     def name(self):
         """Model name"""
