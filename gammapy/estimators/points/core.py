@@ -463,7 +463,7 @@ class FluxPoints(FluxMaps):
 
         return y_errn, y_errp
 
-    def plot(self, ax=None, sed_type=None, energy_power=0, **kwargs):
+    def plot(self, ax=None, sed_type=None, energy_power=0, factor=1, **kwargs):
         """Plot flux points.
 
         Parameters
@@ -505,22 +505,35 @@ class FluxPoints(FluxMaps):
                 0.5 * flux_ul[is_ul].to_value(y_errn.unit), 0, np.inf
             )
             y_errp.data[is_ul] = 0
-            flux.data[is_ul] = flux_ul[is_ul].to_value(flux.unit)
+            flux.data[is_ul] = flux_ul[is_ul].to_value(flux.unit) * factor
             kwargs.setdefault("uplims", is_ul)
 
         # set flux points plotting defaults
         if y_errp and y_errn:
-            y_errp = np.clip(
-                scale_plot_flux(y_errp, energy_power=energy_power).quantity, 0, np.inf
+            y_errp = (
+                np.clip(
+                    scale_plot_flux(y_errp, energy_power=energy_power).quantity,
+                    0,
+                    np.inf,
+                )
+                * factor
             )
-            y_errn = np.clip(
-                scale_plot_flux(y_errn, energy_power=energy_power).quantity, 0, np.inf
+            y_errn = (
+                np.clip(
+                    scale_plot_flux(y_errn, energy_power=energy_power).quantity,
+                    0,
+                    np.inf,
+                )
+                * factor
             )
             kwargs.setdefault("yerr", (y_errn, y_errp))
         else:
             kwargs.setdefault("yerr", None)
 
-        flux = scale_plot_flux(flux=flux.to_unit(flux_unit), energy_power=energy_power)
+        flux = (
+            scale_plot_flux(flux=flux.to_unit(flux_unit), energy_power=energy_power)
+            * factor
+        )
         ax = flux.plot(ax=ax, **kwargs)
         ax.set_ylabel(f"{sed_type} [{ax.yaxis.units}]")
         ax.set_yscale("log")

@@ -441,6 +441,8 @@ class SpectralModel(ModelBase):
         sed_type="dnde",
         energy_power=0,
         n_points=100,
+        pos=False,
+        neg=False,
         **kwargs,
     ):
         """Plot spectral model error band.
@@ -461,23 +463,23 @@ class SpectralModel(ModelBase):
 
         Parameters
         ----------
-        ax : `~matplotlib.axes.Axes`, optional
-            Axis
         energy_bounds : `~astropy.units.Quantity`
-            Plot energy bounds passed to MapAxis.from_energy_bounds
+            Plot energy bounds passed to `~gammapy.maps.MapAxis.from_energy_bounds`.
+        ax : `~matplotlib.axes.Axes`, optional
+            Matplotlib axes. Default is None.
         sed_type : {"dnde", "flux", "eflux", "e2dnde"}
-            Evaluation methods of the model
+            Evaluation methods of the model. Default is "dnde".
         energy_power : int, optional
-            Power of energy to multiply flux axis with
+            Power of energy to multiply flux axis with. Default is 0.
         n_points : int, optional
-            Number of evaluation nodes
+            Number of evaluation nodes. Default is 100.
         **kwargs : dict
-            Keyword arguments forwarded to `matplotlib.pyplot.fill_between`
+            Keyword arguments forwarded to `matplotlib.pyplot.fill_between`.
 
         Returns
         -------
         ax : `~matplotlib.axes.Axes`, optional
-            Axis
+            Matplotlib axes.
         """
         from gammapy.estimators.map.core import DEFAULT_UNIT
 
@@ -501,11 +503,17 @@ class SpectralModel(ModelBase):
             ax.yaxis.set_units(DEFAULT_UNIT[sed_type] * energy.unit**energy_power)
 
         flux, flux_err = self._get_plot_flux(sed_type=sed_type, energy=energy)
+        y = scale_plot_flux(flux, energy_power).quantity[:, 0, 0]
         y_lo = scale_plot_flux(flux - flux_err, energy_power).quantity[:, 0, 0]
         y_hi = scale_plot_flux(flux + flux_err, energy_power).quantity[:, 0, 0]
 
         with quantity_support():
-            ax.fill_between(energy.center, y_lo, y_hi, **kwargs)
+            if pos:
+                ax.fill_between(energy.center, y, y_hi, **kwargs)
+            elif neg:
+                ax.fill_between(energy.center, y_lo, y, **kwargs)
+            else:
+                ax.fill_between(energy.center, y_lo, y_hi, **kwargs)
 
         self._plot_format_ax(ax, energy_power, sed_type)
         return ax
