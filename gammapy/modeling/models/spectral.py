@@ -434,6 +434,51 @@ class SpectralModel(ModelBase):
         self._plot_format_ax(ax, energy_power, sed_type)
         return ax
 
+    def _set_asym_error(self, pos=True):
+        model_ = self.copy()
+        cc = model_.covariance.data.copy()
+        for i in range(len(model_.covariance.data)):
+            if pos:
+                if model_.parameters[i].error_p is not None:
+                    cc[i, i] = model_.parameters[i].error_p ** 2
+            else:
+                if model_.parameters[i].error_n is not None:
+                    cc[i, i] = model_.parameters[i].error_n ** 2
+
+        from gammapy.modeling import Covariance
+
+        model_.covariance = Covariance(parameters=model_.parameters, data=cc)
+        return model_
+
+    def plot_error_asymmetric(
+        self,
+        energy_bounds,
+        ax=None,
+        sed_type="dnde",
+        energy_power=0,
+        n_points=100,
+        **kwargs,
+    ):
+        models_sys_ = self._set_asym_error(pos=True)
+        models_sys_.plot_error(
+            energy_bounds=energy_bounds,
+            ax=ax,
+            sed_type=sed_type,
+            energy_power=energy_power,
+            pos=True,
+            **kwargs,
+        )
+
+        models_sys_ = self._set_asym_error(pos=False)
+        models_sys_.plot_error(
+            energy_bounds=energy_bounds,
+            energy_power=energy_power,
+            ax=ax,
+            sed_type=sed_type,
+            neg=True,
+            **kwargs,
+        )
+
     def plot_error(
         self,
         energy_bounds,
