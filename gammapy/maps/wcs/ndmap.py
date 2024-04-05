@@ -19,6 +19,7 @@ from regions import (
 import matplotlib.pyplot as plt
 from gammapy.utils.interpolation import ScaledRegularGridInterpolator
 from gammapy.utils.units import unit_from_fits_image_hdu
+from gammapy.visualization.utils import add_colorbar
 from ..geom import pix_tuple_to_idx
 from ..utils import INVALID_INDEX
 from .core import WcsMap
@@ -127,7 +128,6 @@ class WcsNDMap(WcsMap):
         return self.data.T[idx]
 
     def interp_by_coord(self, coords, method="linear", fill_value=None):
-
         if self.geom.is_regular:
             pix = self.geom.coord_to_pix(coords)
             return self.interp_by_pix(pix, method=method, fill_value=fill_value)
@@ -335,7 +335,16 @@ class WcsNDMap(WcsMap):
         data = block_reduce(self.data * weights, tuple(block_size), func=func)
         return self._init_copy(geom=geom, data=data.astype(self.data.dtype))
 
-    def plot(self, ax=None, fig=None, add_cbar=False, stretch="linear", **kwargs):
+    def plot(
+        self,
+        ax=None,
+        fig=None,
+        add_cbar=False,
+        stretch="linear",
+        axes_loc=None,
+        kwargs_colorbar=None,
+        **kwargs,
+    ):
         """
         Plot image on matplotlib WCS axes.
 
@@ -377,6 +386,8 @@ class WcsNDMap(WcsMap):
         kwargs.setdefault("origin", "lower")
         kwargs.setdefault("cmap", "afmhot")
 
+        kwargs_colorbar = kwargs_colorbar or {}
+
         mask = np.isfinite(data)
 
         if mask.any():
@@ -387,7 +398,9 @@ class WcsNDMap(WcsMap):
         im = ax.imshow(data, **kwargs)
 
         if add_cbar:
-            fig.colorbar(im, ax=ax, label=str(self.unit))
+            label = str(self.unit)
+            kwargs_colorbar.setdefault("label", label)
+            add_colorbar(im, ax=ax, axes_loc=axes_loc, **kwargs_colorbar)
 
         if self.geom.is_allsky:
             ax = self._plot_format_allsky(ax)

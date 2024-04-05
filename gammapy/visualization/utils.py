@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.interpolate import CubicSpline
+import matplotlib.axes as maxes
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 __all__ = [
     "plot_contour_line",
@@ -18,6 +20,65 @@ ARTIST_TO_LINE_PROPERTIES = {
     "linewidth": "markerwidth",
     "lw": "markerwidth",
 }
+
+
+def add_colorbar(img, ax, axes_loc=None, **kwargs):
+    """
+    Add colorbar to a given axis.
+
+    Parameters
+    ----------
+    img : `~matplotlib.image.AxesImage`
+        The image to plot the colorbar for.
+    ax : `~matplotlib.axes.Axes`
+        Matplotlib axes.
+    axes_loc : dict, optional
+        Keyword arguments passed to `~mpl_toolkits.axes_grid1.axes_divider.AxesDivider.append_axes`.
+    kwargs : dict, optional
+        Keyword arguments passed to `~matplotlib.pyplot.colorbar`.
+
+    Returns
+    -------
+    cbar : `~matplotlib.pyplot.colorbar`
+        The colorbar.
+
+    Examples
+    --------
+    ::
+
+        from gammapy.maps import Map
+        from gammapy.visualization import add_colorbar
+        import matplotlib.pyplot as plt
+        map_ = Map.read("$GAMMAPY_DATA/cta-1dc-gc/cta-1dc-gc.fits.gz")
+        axes_loc = {"position": "right", "size": "2%", "pad": "10%"}
+        kwargs_colorbar = {'label':'Colorbar label'}
+
+        # Example outside gammapy
+        fig = plt.figure(figsize=(6, 3))
+        ax = fig.add_subplot(111)
+        img = ax.imshow(map_.sum_over_axes().data[0,:,:])
+        add_colorbar(img, ax=ax, axes_loc=axes_loc, **kwargs_colorbar)
+
+        # `add_colorbar` is available for the `plot` function here:
+        fig = plt.figure(figsize=(6, 3))
+        ax = fig.add_subplot(111)
+        map_.sum_over_axes().plot(ax=ax, add_cbar=True, axes_loc=axes_loc,
+                                  kwargs_colorbar=kwargs_colorbar)
+
+    """
+    kwargs.setdefault("use_gridspec", True)
+    kwargs.setdefault("orientation", "vertical")
+
+    axes_loc = axes_loc or {}
+    axes_loc.setdefault("position", "right")
+    axes_loc.setdefault("size", "5%")
+    axes_loc.setdefault("pad", "2%")
+    axes_loc.setdefault("axes_class", maxes.Axes)
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(**axes_loc)
+    cbar = plt.colorbar(img, cax=cax, **kwargs)
+    return cbar
 
 
 def plot_spectrum_datasets_off_regions(
