@@ -218,15 +218,24 @@ class ERecoIRFModel(IRFModel):
 
     @staticmethod
     def evaluate(energy_axis, bias, resolution):
-        from gammapy.irf import EDispKernel
+        # deltae = (energy_axis.edges[1:] - energy_axis.edges[:-1])
+        # idx = np.abs(deltae - bias*u.TeV).argmin()
 
-        gaussian = EDispKernel.from_gauss(
-            energy_axis_true=energy_axis.copy(name="energy_true"),
-            energy_axis=energy_axis,
-            sigma=(1e-12 + np.abs(resolution.value)),
-            bias=bias.value,
-        )
-        return gaussian
+        deltae = (
+            energy_axis.center[1:] - energy_axis.center[:-1]
+        ) / energy_axis.center[1:]
+        idx = int(bias.value / np.mean(deltae))
+        N = len(energy_axis.center)
+        print("idx", idx)
+        return np.eye(N, N, idx)
+
+        # gaussian = EDispKernel.from_gauss(
+        #    energy_axis_true=energy_axis.copy(name="energy_true"),
+        #    energy_axis=energy_axis,
+        #    sigma=(1e-12 + np.abs(resolution.value)),
+        #    bias=bias.value,
+        # )
+        # return gaussian
 
 
 class PSFIRFModel(IRFModel):

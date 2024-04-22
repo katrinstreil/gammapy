@@ -532,7 +532,7 @@ class MapDataset(Dataset):
                 self.e_reco_n,
                 axis=1,
             ),
-            gaussian.data,
+            gaussian,
         )
         # set as kernel data
         edisp_kernel.data = data_rebinned.reshape(

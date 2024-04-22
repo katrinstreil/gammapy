@@ -8,7 +8,7 @@ from .cube import (
     TemplateNPredModel,
     create_fermi_isotropic_diffuse_model,
 )
-from .IRF import EffAreaIRFModel, ERecoIRFModel, IRFModels
+from .IRF import EffAreaIRFModel, ERecoIRFModel, IRFModel, IRFModels
 from .prior import GaussianPrior, MultiVariantePrior, Prior, UniformPrior
 from .spatial import (
     ConstantFluxSpatialModel,
