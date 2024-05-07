@@ -528,7 +528,7 @@ class MapDataset(Dataset):
         # rebin edisp_kernel data and multiply with gaussian
         data_rebinned = np.matmul(
             np.repeat(
-                np.repeat(edisp_kernel.data, self.e_reco_n, axis=0),
+                edisp_kernel.data,
                 self.e_reco_n,
                 axis=1,
             ),
@@ -538,7 +538,7 @@ class MapDataset(Dataset):
         edisp_kernel.data = data_rebinned.reshape(
             (
                 len(edisp_kernel.axes["energy_true"].center),
-                self.e_reco_n,
+                1,
                 len(edisp_kernel.axes["energy"].center),
                 self.e_reco_n,
             )
@@ -637,18 +637,22 @@ class MapDataset(Dataset):
 
                 if self.irf_model.e_reco_model is not None:
                     edisp = self.npred_edisp()
+                    evaluator.update_edisp(edisp, self._geom)
+
                 if self.irf_model.eff_area_model is not None:
                     exposure = self.npred_exposure()
+                    evaluator.update_exposure(exposure, self.mask_image)
 
-                evaluator.update(
-                    exposure,
-                    self.psf,
-                    edisp,
-                    self._geom,
-                    self.mask_image,
-                )
                 if self.irf_model.psf_model is not None:
                     evaluator.convolve_psf_map(self.npred_gaussian_psf_map())
+
+                # evaluator.update(
+                #    exposure,
+                #    self.psf,
+                #    edisp,
+                #    self._geom,
+                #    self.mask_image,
+                # )
 
             if evaluator.contributes:
                 npred = evaluator.compute_npred()

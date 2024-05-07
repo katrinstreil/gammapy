@@ -164,6 +164,7 @@ class MapEvaluator:
         return self.psf_width + 2 * (self.model.evaluation_radius + CUTOUT_MARGIN)
 
     def update(self, exposure, psf, edisp, geom, mask):
+
         """Update MapEvaluator, based on the current position of the model component.
 
         Parameters
@@ -225,6 +226,31 @@ class MapEvaluator:
         if self.contributes:
             if not self.geom.is_region or self.geom.region is not None:
                 self.update_spatial_oversampling_factor(self.geom)
+
+        self.reset_cache_properties()
+        self._computation_cache = None
+        self._cached_parameter_previous = None
+
+    def update_edisp(self, edisp, geom):
+        energy_axis = geom.axes["energy"]
+        self.edisp = edisp.get_edisp_kernel(
+            position=self.model.position, energy_axis=energy_axis
+        )
+        self.reset_cache_properties()
+        self._computation_cache = None
+        self._cached_parameter_previous = None
+
+    def update_exposure(self, exposure, mask):
+
+        if self.evaluation_mode == "local":
+            self.contributes = self.model.contributes(mask=mask, margin=self.psf_width)
+
+            if self.contributes:
+                self.exposure = exposure.cutout(
+                    position=self.model.position, width=self.cutout_width, odd_npix=True
+                )
+        else:
+            self.exposure = exposure
 
         self.reset_cache_properties()
         self._computation_cache = None
