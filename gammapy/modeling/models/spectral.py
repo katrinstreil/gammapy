@@ -34,6 +34,7 @@ __all__ = [
     "BrokenPowerLawSpectralModel",
     "CompoundSpectralModel",
     "ConstantSpectralModel",
+    "CompoundNormSpectralModel",
     "EBLAbsorptionNormSpectralModel",
     "ExpCutoffPowerLaw3FGLSpectralModel",
     "ExpCutoffPowerLawNormSpectralModel",
@@ -44,8 +45,10 @@ __all__ = [
     "LogParabolaSpectralModel",
     "NaimaSpectralModel",
     "PiecewiseNormSpectralModel",
+    "PiecewiseNormPenSpectralModel",
     "PowerLaw2SpectralModel",
     "PowerLawNormSpectralModel",
+    "PowerLawNormEffAreaSpectralModel",
     "PowerLawSpectralModel",
     "scale_plot_flux",
     "ScaleSpectralModel",
@@ -684,6 +687,155 @@ class ConstantSpectralModel(SpectralModel):
         return np.ones(np.atleast_1d(energy).shape) * const
 
 
+class PiecewiseNormPenSpectralModel(SpectralModel):
+    """Piecewise spectral correction
+       with a free normalization at each fixed energy nodes.
+
+       For more information see :ref:`piecewise-norm-spectral`.
+
+    Parameters
+    ----------
+    energy : `~astropy.units.Quantity`
+        Array of energies at which the model values are given (nodes).
+    norms : `~numpy.ndarray` or list of `Parameter`
+        Array with the initial norms of the model at energies ``energy``.
+        A normalisation parameters is created for each value.
+        Default is one at each node.
+    interp : str
+        Interpolation scaling in {"log", "lin"}. Default is "log"
+    """
+
+    tag = ["PiecewiseNormPenSpectralModel", "piecewise-norm"]
+
+    def __init__(self, energy, norms=None, interp="lin"):
+        self._energy = energy
+        self._interp = interp
+
+        if norms is None:
+            norms = np.ones(len(energy))
+
+        if len(norms) != len(energy):
+            raise ValueError("dimension mismatch")
+
+        if len(norms) < 2:
+            raise ValueError("Input arrays must contain at least 2 elements")
+
+        if not isinstance(norms[0], Parameter):
+            parameters = Parameters(
+                [
+                    Parameter(f"norm_{k}", norm, is_penalised=True)
+                    for k, norm in enumerate(norms)
+                ]
+            )
+        else:
+            parameters = Parameters(norms)
+
+        self.default_parameters = parameters
+        super().__init__()
+
+    @property
+    def energy(self):
+        """Energy nodes"""
+        return self._energy
+
+    @property
+    def norms(self):
+        """Norm values"""
+        return u.Quantity(self.parameters.value)
+
+    def evaluate(self, energy, **norms):
+        scale = interpolation_scale(scale=self._interp)
+        e_eval = scale(np.atleast_1d(energy.value))
+        e_nodes = scale(self.energy.to(energy.unit).value)
+        v_nodes = scale(self.norms)
+        log_interp = scale.inverse(np.interp(e_eval, e_nodes, v_nodes))
+        return log_interp
+
+    def to_dict(self, full_output=False):
+        data = super().to_dict(full_output=full_output)
+        data["spectral"]["energy"] = {
+            "data": self.energy.data.tolist(),
+            "unit": str(self.energy.unit),
+        }
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create model from dict"""
+        data = data["spectral"]
+        energy = u.Quantity(data["energy"]["data"], data["energy"]["unit"])
+        parameters = Parameters.from_dict(data["parameters"])
+        return cls.from_parameters(parameters, energy=energy)
+
+    @classmethod
+    def from_parameters(cls, parameters, **kwargs):
+        """Create model from parameters"""
+        return cls(norms=parameters, **kwargs)
+
+
+class CompoundNormSpectralModel(SpectralModel):
+    """Arithmetic combination of two spectral models.
+
+    For more information see :ref:`compound-spectral-model`.
+    """
+
+    tag = ["CompoundNormSpectralModel", "compound"]
+
+    def __init__(self, model1, model2, operator):
+        self.model1 = model1
+        self.model2 = model2
+        self.operator = operator
+        super().__init__()
+
+    @property
+    def parameters(self):
+        return self.model1.parameters + self.model2.parameters
+
+    def __str__(self):
+        return (
+            f"{self.__class__.__name__}\n"
+            f"    Component 1 : {self.model1}\n"
+            f"    Component 2 : {self.model2}\n"
+            f"    Operator : {self.operator.__name__}\n"
+        )
+
+    def __call__(self, energy):
+        val1 = self.model1(energy)
+        val2 = self.model2(energy)
+        return self.operator(val1, val2)
+
+    def to_dict(self, full_output=False):
+        dict1 = self.model1.to_dict(full_output)
+        dict2 = self.model2.to_dict(full_output)
+        return {
+            self._type: {
+                "type": self.tag[0],
+                "model1": dict1["spectral"],  # for cleaner output
+                "model2": dict2["spectral"],
+                "operator": self.operator.__name__,
+            }
+        }
+
+    def evaluate(self, energy, *args):
+        args1 = args[: len(self.model1.parameters)]
+        args2 = args[len(self.model1.parameters) :]
+        val1 = self.model1.evaluate(energy, *args1)
+        val2 = self.model2.evaluate(energy, *args2)
+        return self.operator(val1, val2)
+
+    @classmethod
+    def from_dict(cls, data):
+        from gammapy.modeling.models import SPECTRAL_MODEL_REGISTRY
+
+        data = data["spectral"]
+        model1_cls = SPECTRAL_MODEL_REGISTRY.get_cls(data["model1"]["type"])
+        model1 = model1_cls.from_dict({"spectral": data["model1"]})
+        model2_cls = SPECTRAL_MODEL_REGISTRY.get_cls(data["model2"]["type"])
+        model2 = model2_cls.from_dict({"spectral": data["model2"]})
+        op = getattr(operator, data["operator"])
+        return cls(model1, model2, op)
+
+
 class CompoundSpectralModel(SpectralModel):
     """Arithmetic combination of two spectral models.
 
@@ -878,6 +1030,37 @@ class PowerLawSpectralModel(SpectralModel):
         amplitude = self.amplitude.quantity
         cov_index_ampl = self.covariance.data[0, 1] * amplitude.unit
         return reference * np.exp(cov_index_ampl / (amplitude * index_err**2))
+
+
+class PowerLawNormEffAreaSpectralModel(SpectralModel):
+    r"""Spectral power-law model with normalized amplitude parameter.
+
+    Parameters
+    ----------
+    tilt : `~astropy.units.Quantity`
+        :math:`\Gamma`
+        Default is 0
+    norm : `~astropy.units.Quantity`
+        :math:`\phi_0`
+        Default is 1
+    reference : `~astropy.units.Quantity`
+        :math:`E_0`
+        Default is 1 TeV
+
+    See Also
+    --------
+    PowerLawSpectralModel, PowerLaw2SpectralModel
+    """
+
+    tag = ["PowerLawNormEffAreaSpectralModel", "pl-eff-norm"]
+    eff_area_norm = Parameter("eff_area_norm", 1, unit="", interp="log", is_norm=True)
+    eff_area_tilt = Parameter("eff_area_tilt", 0, frozen=True)
+    reference = Parameter("reference", "1 TeV", frozen=True)
+
+    @staticmethod
+    def evaluate(energy, eff_area_tilt, eff_ara_norm, reference):
+        """Evaluate the model (static function)."""
+        return eff_ara_norm * np.power((energy / reference), -eff_area_tilt)
 
 
 class PowerLawNormSpectralModel(SpectralModel):

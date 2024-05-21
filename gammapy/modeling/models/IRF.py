@@ -224,9 +224,11 @@ class ERecoIRFModel(IRFModel):
         deltae = (
             energy_axis.center[1:] - energy_axis.center[:-1]
         ) / energy_axis.center[1:]
-        idx = int(bias.value / np.mean(deltae))
+        if np.isnan(bias.value):
+            idx = 0
+        else:
+            idx = int(bias.value / np.mean(deltae))
         N = len(energy_axis.center)
-        print("idx", idx)
         return np.eye(N, N, idx)
 
         # gaussian = EDispKernel.from_gauss(

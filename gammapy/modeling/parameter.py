@@ -119,6 +119,7 @@ class Parameter:
         prior=None,
         error_n=None,
         error_p=None,
+        is_penalised=False,
     ):
         if not isinstance(name, str):
             raise TypeError(f"Name must be string, got '{type(name)}' instead")

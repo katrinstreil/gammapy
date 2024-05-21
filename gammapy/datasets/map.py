@@ -207,7 +207,7 @@ class MapDataset(Dataset):
 
     def __init__(
         self,
-        e_reco_n=100,
+        e_reco_n=2000,
         models=None,
         counts=None,
         exposure=None,

@@ -88,7 +88,17 @@ class RegionNDMap(Map):
         kwargs.setdefault("marker", "o")
         kwargs.setdefault("markersize", 4)
         kwargs.setdefault("ls", "None")
-        kwargs.setdefault("xerr", axis.as_plot_xerr)
+        shift = kwargs.pop("shift", 1.0)
+        print("shift", shift)
+
+        if shift == 1.0:
+            kwargs.setdefault("xerr", axis.as_plot_xerr)
+        else:
+            xerr = (
+                axis.center * shift - axis.edges_min,
+                axis.edges_max - axis.center * shift,
+            )
+            kwargs.setdefault("xerr", xerr)
 
         yerr_nd, yerr = kwargs.pop("yerr", None), None
         uplims_nd, uplims = kwargs.pop("uplims", None), None
@@ -113,7 +123,7 @@ class RegionNDMap(Map):
 
             with quantity_support():
                 ax.errorbar(
-                    x=axis.as_plot_center,
+                    x=axis.as_plot_center * shift,
                     y=quantity,
                     yerr=yerr,
                     uplims=uplims,
