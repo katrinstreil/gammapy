@@ -28,6 +28,7 @@ from gammapy.utils.scripts import make_path
 from .core import ModelBase
 
 __all__ = [
+    "MyCustomBandModel",
     "ConstantFluxSpatialModel",
     "ConstantSpatialModel",
     "DiskSpatialModel",
@@ -713,6 +714,32 @@ class GaussianSpatialModel(SpatialModel):
             outer_width=2 * x_sigma * minor_axis_hi,
             angle=self.phi.quantity,
         )
+
+
+class MyCustomBandModel(SpatialModel):
+    """My custom Band model for Diffuse emission.
+    Parameter
+    ----------
+    sigma : `~astropy.coordinates.Angle`
+        Width of the Gaussian distribution over latitude
+    """
+
+    tag = ["BandSpatialModel", "band"]
+    sigma = Parameter("sigma", "0.25 deg", min=0)
+    frame = "galactic"
+
+    @staticmethod
+    def evaluate(lon, lat, sigma):
+        """Evaluate custom Band model"""
+        # Constant = ConstantSpatialModel(value="42 sr-1")
+        Constant = "42 sr-1"
+        gauss = np.exp(-0.5 * (lat) ** 2 / sigma**2)
+        gauss = gauss * Constant
+        return gauss
+
+    @property
+    def evaluation_radius(self):
+        return None
 
 
 class GeneralizedGaussianSpatialModel(SpatialModel):

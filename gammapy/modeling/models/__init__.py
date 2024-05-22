@@ -16,6 +16,7 @@ from .spatial import (
     DiskSpatialModel,
     GaussianSpatialModel,
     GeneralizedGaussianSpatialModel,
+    MyCustomBandModel,
     PiecewiseNorm3DModel,
     PiecewiseNormSpatialModel,
     PointSpatialModel,
@@ -72,6 +73,7 @@ from .temporal import (
 )
 
 __all__ = [
+    "MyCustomBandModel",
     "BrokenPowerLawSpectralModel",
     "BrokenPowerLawNormSpectralModel",
     "CompoundSpectralModel",
@@ -147,6 +149,7 @@ __all__ = [
 
 SPATIAL_MODEL_REGISTRY = Registry(
     [
+        MyCustomBandModel,
         ConstantSpatialModel,
         TemplateSpatialModel,
         TemplateNDSpatialModel,

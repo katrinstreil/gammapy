@@ -1058,9 +1058,9 @@ class PowerLawNormEffAreaSpectralModel(SpectralModel):
     reference = Parameter("reference", "1 TeV", frozen=True)
 
     @staticmethod
-    def evaluate(energy, eff_area_tilt, eff_ara_norm, reference):
+    def evaluate(energy, eff_area_tilt, eff_area_norm, reference):
         """Evaluate the model (static function)."""
-        return eff_ara_norm * np.power((energy / reference), -eff_area_tilt)
+        return eff_area_norm * np.power((energy / reference), -eff_area_tilt)
 
 
 class PowerLawNormSpectralModel(SpectralModel):
