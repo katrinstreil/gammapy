@@ -1688,7 +1688,6 @@ class PiecewiseNorm3DModel(SpatialModel):
 
     def evaluate(self, lon, lat, energy=None, **norms):
         norms_ = self.norms.value.reshape(len(self._energy), self._coords.shape[0])
-        print("self._interp", self._interp)
         # idx_energies = np.where(energy == self._energy)[0]
         idx_energies = np.where(np.isclose(energy, self._energy, 1e-3))[0]
 

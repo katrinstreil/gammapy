@@ -49,6 +49,7 @@ __all__ = [
     "PowerLaw2SpectralModel",
     "PowerLawNormSpectralModel",
     "PowerLawNormEffAreaSpectralModel",
+    "PowerLawNornSpectralModel",
     "PowerLawSpectralModel",
     "scale_plot_flux",
     "ScaleSpectralModel",
@@ -1061,6 +1062,99 @@ class PowerLawNormEffAreaSpectralModel(SpectralModel):
     def evaluate(energy, eff_area_tilt, eff_area_norm, reference):
         """Evaluate the model (static function)."""
         return eff_area_norm * np.power((energy / reference), -eff_area_tilt)
+
+
+class PowerLawNornSpectralModel(SpectralModel):
+    r"""Spectral power-law model with normalized amplitude parameter.
+
+    Parameters
+    ----------
+    tilt : `~astropy.units.Quantity`
+        :math:`\Gamma`
+    norm : `~astropy.units.Quantity`
+        :math:`\phi_0`
+    reference : `~astropy.units.Quantity`
+        :math:`E_0`
+
+    See Also
+    --------
+    PowerLawSpectralModel, PowerLaw2SpectralModel
+    """
+
+    tag = ["PowerLawNornSpectralModel", "pl-norm"]
+    norm_ = Parameter("norm_", 1, unit="", interp="log", is_norm=True)
+    tilt = Parameter("tilt", 0, frozen=True)
+    reference = Parameter("reference", "1 TeV", frozen=True)
+
+    @staticmethod
+    def evaluate(energy, tilt, norm_, reference):
+        """Evaluate the model (static function)."""
+        return norm_ * np.power((energy / reference), -tilt)
+
+    @staticmethod
+    def evaluate_integral(energy_min, energy_max, tilt, norm_, reference):
+        """Evaluate pwl integral."""
+        val = -1 * tilt + 1
+
+        prefactor = norm_ * reference / val
+        upper = np.power((energy_max / reference), val)
+        lower = np.power((energy_min / reference), val)
+        integral = prefactor * (upper - lower)
+
+        mask = np.isclose(val, 0)
+
+        if mask.any():
+            integral[mask] = (norm_ * reference * np.log(energy_max / energy_min))[mask]
+
+        return integral
+
+    @staticmethod
+    def evaluate_energy_flux(energy_min, energy_max, tilt, norm_, reference):
+        """Evaluate the energy flux (static function)"""
+        val = -1 * tilt + 2
+
+        prefactor = norm_ * reference**2 / val
+        upper = (energy_max / reference) ** val
+        lower = (energy_min / reference) ** val
+        energy_flux = prefactor * (upper - lower)
+
+        mask = np.isclose(val, 0)
+
+        if mask.any():
+            # see https://www.wolframalpha.com/input/?i=a+*+x+*+(x%2Fb)+%5E+(-2)
+            # for reference
+            energy_flux[mask] = (
+                norm_ * reference**2 * np.log(energy_max / energy_min)[mask]
+            )
+
+        return energy_flux
+
+    def inverse(self, value, *args):
+        """Return energy for a given function value of the spectral model.
+
+        Parameters
+        ----------
+        value : `~astropy.units.Quantity`
+            Function value of the spectral model.
+        """
+        base = value / self.norm.quantity
+        return self.reference.quantity * np.power(base, -1.0 / self.tilt.value)
+
+    @property
+    def pivot_energy(self):
+        r"""The decorrelation energy is defined as:
+
+        .. math::
+
+            E_D = E_0 * \exp{cov(\phi_0, \Gamma) / (\phi_0 \Delta \Gamma^2)}
+
+        Formula (1) in https://arxiv.org/pdf/0910.4881.pdf
+        """
+        tilt_err = self.tilt.error
+        reference = self.reference.quantity
+        norm_ = self.norm_.quantity
+        cov_tilt_norm = self.covariance.data[0, 1] * norm_.unit
+        return reference * np.exp(cov_tilt_norm / (norm_ * tilt_err**2))
 
 
 class PowerLawNormSpectralModel(SpectralModel):

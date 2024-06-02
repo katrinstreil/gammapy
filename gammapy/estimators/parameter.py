@@ -85,8 +85,8 @@ class ParameterEstimator(Estimator):
         print("in parameter estimate best fit")
         if np.any(datasets.contributes_to_stat):
             result = self.fit.run(datasets=datasets)
-            print("models after fit:")
-            print(datasets.models)
+            # print("models after fit:")
+            # print(datasets.models)
 
             value, error = parameter.value, parameter.error
             total_stat = result.optimize_result.total_stat
