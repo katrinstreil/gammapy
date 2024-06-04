@@ -1522,7 +1522,7 @@ class PiecewiseNormSpectralModel(SpectralModel):
         self._energy = energy
         self._interp = interp
         self._norm = Parameter(
-            "_norm", 1, unit="", interp="log", is_norm=True, frozen=True
+            "_norm", 0, unit="", interp="lin", is_norm=True, frozen=True
         )
 
         if norms is None:
