@@ -368,7 +368,9 @@ class WcsNDMap(WcsMap):
         data = block_reduce(self.data * weights, tuple(block_size), func=func)
         return self._init_copy(geom=geom, data=data.astype(self.data.dtype))
 
-    def plot(self, ax=None, fig=None, add_cbar=False, stretch="linear", **kwargs):
+    def plot(
+        self, ax=None, fig=None, add_cbar=False, stretch="linear", kwargs_c={}, **kwargs
+    ):
         """
         Plot image on matplotlib WCS axes.
 
@@ -423,9 +425,9 @@ class WcsNDMap(WcsMap):
             kwargs.setdefault("norm", norm)
 
         im = ax.imshow(data, **kwargs)
-
+        kwargs_c.setdefault("label", str(self.unit))
         if add_cbar:
-            fig.colorbar(im, ax=ax, label=str(self.unit))
+            fig.colorbar(im, ax=ax, **kwargs_c)
 
         if self.geom.is_allsky:
             ax = self._plot_format_allsky(ax)

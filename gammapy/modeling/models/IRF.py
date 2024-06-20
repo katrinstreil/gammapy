@@ -292,7 +292,7 @@ class EffAreaIRFModel(IRFModel):
 
     def evaluate(self, energy):
         """Evaluate model"""
-        return self.spectral_model(energy) + 1.0
+        return self.spectral_model(energy)  # + 1.0
 
     def to_dict(self, full_output=False):
         data = {}

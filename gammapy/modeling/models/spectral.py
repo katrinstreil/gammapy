@@ -1064,6 +1064,37 @@ class PowerLawNormEffAreaSpectralModel(SpectralModel):
         return eff_area_norm * np.power((energy / reference), -eff_area_tilt)
 
 
+class PowerLawNormOneHundredSpectralModel(SpectralModel):
+    r"""Spectral power-law model with normalized amplitude parameter.
+
+    Parameters
+    ----------
+    tilt : `~astropy.units.Quantity`
+        :math:`\Gamma`
+        Default is 0
+    norm : `~astropy.units.Quantity`
+        :math:`\phi_0`
+        Default is 1
+    reference : `~astropy.units.Quantity`
+        :math:`E_0`
+        Default is 1 TeV
+
+    See Also
+    --------
+    PowerLawSpectralModel, PowerLaw2SpectralModel
+    """
+
+    tag = ["PowerLawNormOneHundredSpectralModel", "pl-hunderd-norm"]
+    norm = Parameter("norm", 0, unit="", interp="log", is_norm=True)
+    tilt = Parameter("tilt", 0, frozen=True)
+    reference = Parameter("reference", "100 TeV", frozen=True)
+
+    @staticmethod
+    def evaluate(energy, tilt, norm, reference):
+        """Evaluate the model (static function)."""
+        return (1 + norm) * np.power((energy / reference), -tilt)
+
+
 class PowerLawNornSpectralModel(SpectralModel):
     r"""Spectral power-law model with normalized amplitude parameter.
 

@@ -513,7 +513,7 @@ class EDispKernel(IRF):
 
         return var / norm
 
-    def plot_matrix(self, ax=None, add_cbar=False, **kwargs):
+    def plot_matrix(self, ax=None, add_cbar=False, kwargs_c={}, **kwargs):
         """Plot PDF matrix.
 
         Parameters
@@ -544,7 +544,7 @@ class EDispKernel(IRF):
 
         if add_cbar:
             label = "Probability density (A.U.)"
-            ax.figure.colorbar(caxes, ax=ax, label=label)
+            ax.figure.colorbar(caxes, ax=ax, label=label, **kwargs_c)
 
         energy_axis_true.format_plot_xaxis(ax=ax)
         energy_axis.format_plot_yaxis(ax=ax)
