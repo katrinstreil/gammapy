@@ -97,9 +97,7 @@ class IRFModels(ModelBase):
         eff_area_model_data = data.get("eff_area_model")
 
         if eff_area_model_data is not None:
-            eff_area_model = EffAreaIRFModel.from_dict(
-                {"EffAreaIRFModel": eff_area_model_data}
-            )
+            eff_area_model = EffAreaIRFModel.from_dict(eff_area_model_data)
         else:
             eff_area_model = None
 
@@ -248,6 +246,36 @@ class EffAreaIRFModel(ModelBase):
     def evaluate(self, energy):
         """Evaluate model"""
         return self.spectral_model(energy)
+
+    def to_dict(self, full_output=False):
+        data = {}
+        data["type"] = self.tag[0]
+        data["spectral"] = self.spectral_model.to_dict(full_output=full_output)[
+            "spectral"
+        ]
+        return {"eff_area_model": data}
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create model from dict
+
+        Parameters
+        ----------
+        data : dict
+            Data dictionary
+        """
+        from gammapy.modeling.models import SPECTRAL_MODEL_REGISTRY
+
+        spectral_data = data.get("spectral")
+        if spectral_data is not None:
+            model_class = SPECTRAL_MODEL_REGISTRY.get_cls(spectral_data["type"])
+            spectral_model = model_class.from_dict({"spectral": spectral_data})
+        else:
+            spectral_model = None
+
+        return cls(
+            spectral_model=spectral_model,
+        )
 
 
 class NuisanceBackgroundModel(ModelBase):
