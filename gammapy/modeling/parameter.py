@@ -24,7 +24,7 @@ def _get_parameters_str(parameters):
         else:
             value_format, error_format = "{:10.3f}", "{:7.2f}"
 
-        line = "\t{:21} {:8}: " + value_format + "\t {} {:<12s}\n"
+        line = "\t{:10} {:8}{:8}: " + value_format + "\t {} {:<12s}\n"
 
         if par._link_label_io is not None:
             name = par._link_label_io
@@ -33,13 +33,19 @@ def _get_parameters_str(parameters):
 
         if par.frozen:
             frozen, error = "(frozen)", "\t\t"
+
         else:
             frozen = ""
             try:
                 error = "+/- " + error_format.format(par.error)
             except AttributeError:
                 error = ""
-        str_ += line.format(name, frozen, par.value, error, par.unit)
+        if par.prior is not None:
+            prior = "[prior]"
+        else:
+            prior = ""
+
+        str_ += line.format(name, frozen, prior, par.value, error, par.unit)
     return str_.expandtabs(tabsize=2)
 
 
@@ -196,7 +202,6 @@ class Parameter:
                 else:
                     # in case of ndimprior just transform, checks come later
                     value = MultiVariantePrior.from_dict(data=value)
-
             # testing of self in prior.modelparameter
             if isinstance(value, Prior):
                 if self in value.modelparameters:

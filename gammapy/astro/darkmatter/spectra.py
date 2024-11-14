@@ -253,14 +253,35 @@ class DarkMatterAnnihilationSpectralModel(SpectralModel):
     ):
         self.k = k
         self.z = z
-        self.mass = u.Quantity(mass)
+        self._mass = u.Quantity(mass)
         self.channel = channel
         self.jfactor = u.Quantity(jfactor)
         self.table_filename = table_filename
-        self.primary_flux = PrimaryFlux(
+        self._primary_flux = PrimaryFlux(
             mass, channel=self.channel, table_filename=self.table_filename
         )
         super().__init__(scale=scale)
+
+    @property
+    def mass(self):
+        return self._mass
+
+    @mass.setter
+    def mass(self, value):
+        self._mass = u.Quantity(value)
+        self._primary_flux = PrimaryFlux(
+            value, channel=self.channel, table_filename=self.table_filename
+        )
+
+    @property
+    def primary_flux(self):
+        return self._primary_flux
+
+    @primary_flux.setter
+    def primary_flux(self, mass, channel):
+        self._primary_flux = PrimaryFlux(
+            mass, channel=channel, table_filename=self.table_filename
+        )
 
     def evaluate(self, energy, scale):
         """Evaluate dark matter annihilation model."""
@@ -270,8 +291,8 @@ class DarkMatterAnnihilationSpectralModel(SpectralModel):
             * self.THERMAL_RELIC_CROSS_SECTION
             * self.primary_flux(energy=energy * (1 + self.z))
             / self.k
-            / self.mass
-            / self.mass
+            / self._mass
+            / self._mass
             / (4 * np.pi)
         )
         return flux
@@ -280,7 +301,7 @@ class DarkMatterAnnihilationSpectralModel(SpectralModel):
         """Convert to dictionary."""
         data = super().to_dict(full_output=full_output)
         data["spectral"]["channel"] = self.channel
-        data["spectral"]["mass"] = self.mass.to_string()
+        data["spectral"]["mass"] = self._mass.to_string()
         data["spectral"]["jfactor"] = self.jfactor.to_string()
         data["spectral"]["z"] = self.z
         data["spectral"]["k"] = self.k

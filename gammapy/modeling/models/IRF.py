@@ -220,7 +220,6 @@ class ERecoIRFModel(IRFModel):
     def evaluate(energy_axis, bias, resolution):
         # deltae = (energy_axis.edges[1:] - energy_axis.edges[:-1])
         # idx = np.abs(deltae - bias*u.TeV).argmin()
-
         deltae = (
             energy_axis.center[1:] - energy_axis.center[:-1]
         ) / energy_axis.center[1:]

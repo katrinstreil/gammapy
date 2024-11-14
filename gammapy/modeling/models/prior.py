@@ -334,3 +334,36 @@ class UniformPrior(Prior):
             return 1.0
         else:
             return 0.0
+
+
+class UniformElsePrior(Prior):
+    r"""Uniform Prior.
+
+    Returns 1. if the parameter value is in (min, max).
+    else. if otherwise.
+
+    Parameters
+    ----------
+    min : float
+        Minimum value.
+        Default is -inf.
+
+    max : float
+        Maxmimum value.
+        Default is inf.
+
+    """
+
+    tag = ["UniformPrior"]
+    _type = "prior"
+    a = PriorParameter(name="a", value=0, unit="")
+    b = PriorParameter(name="b", value=100, unit="")
+    inner = PriorParameter(name="inner", value=1, unit="")
+    outer = PriorParameter(name="outer", value=1e3, unit="")
+    _dimension = 1
+
+    def evaluate(self, value, a, b, inner, outer):
+        if a <= value <= b:
+            return inner
+        else:
+            return outer

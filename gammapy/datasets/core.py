@@ -10,7 +10,7 @@ from astropy.table import Table, vstack
 from gammapy.data import GTI
 from gammapy.modeling.models import DatasetModels, Models
 from gammapy.stats import prior_fit_statistic
-from gammapy.utils.scripts import make_name, make_path, read_yaml, write_yaml
+from gammapy.utils.scripts import make_path, read_yaml, write_yaml
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +97,8 @@ class Dataset(abc.ABC):
             Copied datasets.
         """
         new = copy.deepcopy(self)
-        name = make_name(name)
+        if name is None:
+            name = "dataset-fit"  # make_name(name)
         new._name = name
         # TODO: check the model behaviour?
         new.models = None

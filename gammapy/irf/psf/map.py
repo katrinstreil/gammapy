@@ -447,7 +447,7 @@ class PSFMap(IRFMap):
 
         for frac in fraction:
             radius = self.containment_radius(frac, energy_true, position)
-            label = f"Containment: {100 * frac:.1f}%"
+            label = f"{100 * frac:.1f} per containment"
             with quantity_support():
                 ax.plot(energy_true, radius, label=label, **kwargs)
 

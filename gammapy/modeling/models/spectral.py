@@ -46,6 +46,7 @@ __all__ = [
     "NaimaSpectralModel",
     "PiecewiseNormSpectralModel",
     "PiecewiseNormPenSpectralModel",
+    "PiecewiseSpectralModel",
     "PowerLaw2SpectralModel",
     "PowerLawNormSpectralModel",
     "PowerLawNormEffAreaSpectralModel",
@@ -408,7 +409,7 @@ class SpectralModel(ModelBase):
 
     def plot(
         self,
-        energy_bounds,
+        energy_bounds=(0.1, 100) * u.TeV,
         ax=None,
         sed_type="dnde",
         energy_power=0,
@@ -478,7 +479,7 @@ class SpectralModel(ModelBase):
 
     def plot_error(
         self,
-        energy_bounds,
+        energy_bounds=(0.1, 100) * u.TeV,
         ax=None,
         sed_type="dnde",
         energy_power=0,
@@ -555,9 +556,12 @@ class SpectralModel(ModelBase):
     @staticmethod
     def _plot_format_ax(ax, energy_power, sed_type):
         ax.set_xlabel(f"Energy [{ax.xaxis.units.to_string(UNIT_STRING_FORMAT)}]")
+        # E_temp = "$E^{{energy_power}}"
+        if sed_type == "dnde":
+            sed_type = "dN/dE"
         if energy_power > 0:
             ax.set_ylabel(
-                f"e{energy_power} * {sed_type} [{ax.yaxis.units.to_string(UNIT_STRING_FORMAT)}]"
+                f"E$^{{{energy_power}}}$ {sed_type} [{ax.yaxis.units.to_string(UNIT_STRING_FORMAT)}]"
             )
         else:
             ax.set_ylabel(
@@ -1062,6 +1066,37 @@ class PowerLawNormEffAreaSpectralModel(SpectralModel):
     def evaluate(energy, eff_area_tilt, eff_area_norm, reference):
         """Evaluate the model (static function)."""
         return eff_area_norm * np.power((energy / reference), -eff_area_tilt)
+
+
+class PowerLawNormOneSpectralModel(SpectralModel):
+    r"""Spectral power-law model with normalized amplitude parameter.
+
+    Parameters
+    ----------
+    tilt : `~astropy.units.Quantity`
+        :math:`\Gamma`
+        Default is 0
+    norm : `~astropy.units.Quantity`
+        :math:`\phi_0`
+        Default is 1
+    reference : `~astropy.units.Quantity`
+        :math:`E_0`
+        Default is 1 TeV
+
+    See Also
+    --------
+    PowerLawSpectralModel, PowerLaw2SpectralModel
+    """
+
+    tag = ["PowerLawNormOneHundredSpectralModel", "pl-hunderd-norm"]
+    norm = Parameter("norm", 0, unit="", interp="log", is_norm=True)
+    tilt = Parameter("tilt", 0, frozen=True)
+    reference = Parameter("reference", "1 TeV", frozen=True)
+
+    @staticmethod
+    def evaluate(energy, tilt, norm, reference):
+        """Evaluate the model (static function)."""
+        return (1 + norm) * np.power((energy / reference), -tilt)
 
 
 class PowerLawNormOneHundredSpectralModel(SpectralModel):
@@ -1602,6 +1637,7 @@ class PiecewiseNormSpectralModel(SpectralModel):
             "data": self.energy.data.tolist(),
             "unit": str(self.energy.unit),
         }
+        data["spectral"]["interp"] = self._interp
         return data
 
     @classmethod
@@ -1609,13 +1645,61 @@ class PiecewiseNormSpectralModel(SpectralModel):
         """Create model from dict"""
         data = data["spectral"]
         energy = u.Quantity(data["energy"]["data"], data["energy"]["unit"])
+        if "interp" in data.keys():
+            interp = data["interp"]
+        else:
+            interp = "lin"
         parameters = Parameters.from_dict(data["parameters"])
-        return cls.from_parameters(parameters, energy=energy)
+        return cls.from_parameters(parameters, energy=energy, interp=interp)
 
     @classmethod
     def from_parameters(cls, parameters, **kwargs):
         """Create model from parameters"""
         return cls(norms=parameters, **kwargs)
+
+
+class PiecewiseSpectralModel(PiecewiseNormSpectralModel):
+    tag = ["PiecewiseSpectralModel", "piecewise"]
+
+    def __init__(self, energy, norms=None, interp="lin"):
+        self._energy = energy
+        self._interp = interp
+        self._norm = Parameter(
+            "_norm", 0, unit="", interp="log", is_norm=True, frozen=True
+        )
+
+        if norms is None:
+            norms = np.ones(len(energy))
+
+        if len(norms) != len(energy):
+            raise ValueError("dimension mismatch")
+
+        if len(norms) < 2:
+            raise ValueError("Input arrays must contain at least 2 elements")
+
+        parameters_list = []  # self._norm]
+        if not isinstance(norms[0], Parameter):
+            parameters_list += [
+                Parameter(
+                    f"norm_{k}",
+                    norm,
+                    interp="log",
+                )
+                for k, norm in enumerate(norms)
+            ]
+        else:
+            parameters_list += norms
+
+        self.default_parameters = Parameters(parameters_list)
+        super().__init__(energy=energy, norms=parameters_list, interp=interp)
+
+    def evaluate(self, energy, **norms):
+        scale = interpolation_scale(scale=self._interp)
+        e_eval = scale(np.atleast_1d(energy.value))
+        e_nodes = scale(self.energy.to(energy.unit).value)
+        v_nodes = scale(self.norms)
+        log_interp = scale.inverse(np.interp(e_eval, e_nodes, v_nodes))
+        return log_interp * u.Unit("1 / (cm2 s TeV)")
 
 
 class ExpCutoffPowerLawSpectralModel(SpectralModel):

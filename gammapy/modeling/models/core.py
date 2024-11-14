@@ -195,8 +195,8 @@ class ModelBase:
                     ):
                         del par[item]
 
-                if par["frozen"] == init["frozen"]:
-                    del par["frozen"]
+                # if par["frozen"] == init["frozen"]:
+                #    del par["frozen"]
 
                 if init["unit"] == "":
                     del par["unit"]

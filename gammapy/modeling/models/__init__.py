@@ -9,7 +9,13 @@ from .cube import (
     create_fermi_isotropic_diffuse_model,
 )
 from .IRF import EffAreaIRFModel, ERecoIRFModel, IRFModel, IRFModels
-from .prior import GaussianPrior, MultiVariantePrior, Prior, UniformPrior
+from .prior import (
+    GaussianPrior,
+    MultiVariantePrior,
+    Prior,
+    UniformElsePrior,
+    UniformPrior,
+)
 from .spatial import (
     ConstantFluxSpatialModel,
     ConstantSpatialModel,
@@ -42,9 +48,11 @@ from .spectral import (
     NaimaSpectralModel,
     PiecewiseNormPenSpectralModel,
     PiecewiseNormSpectralModel,
+    PiecewiseSpectralModel,
     PowerLaw2SpectralModel,
     PowerLawNormEffAreaSpectralModel,
     PowerLawNormOneHundredSpectralModel,
+    PowerLawNormOneSpectralModel,
     PowerLawNormSpectralModel,
     PowerLawNornSpectralModel,
     PowerLawSpectralModel,
@@ -116,6 +124,7 @@ __all__ = [
     "NaimaSpectralModel",
     "PiecewiseNormSpectralModel",
     "PiecewiseNormSpatialModel",
+    "PiecewiseSpectralModel",
     "PiecewiseNorm3DModel",
     "PointSpatialModel",
     "PowerLaw2SpectralModel",
@@ -126,6 +135,7 @@ __all__ = [
     "PowerLawTemporalModel",
     "PiecewiseNormPenSpectralModel",
     "PowerLawNormOneHundredSpectralModel",
+    "PowerLawNormOneSpectralModel",
     "scale_plot_flux",
     "ScaleSpectralModel",
     "Shell2SpatialModel",
@@ -182,8 +192,10 @@ SPECTRAL_MODEL_REGISTRY = Registry(
         SmoothBrokenPowerLawSpectralModel,
         PiecewiseNormSpectralModel,
         PiecewiseNormPenSpectralModel,
+        PiecewiseSpectralModel,
         PowerLawNornSpectralModel,
         PowerLawNormOneHundredSpectralModel,
+        PowerLawNormOneSpectralModel,
         ExpCutoffPowerLawSpectralModel,
         ExpCutoffPowerLaw3FGLSpectralModel,
         SuperExpCutoffPowerLaw3FGLSpectralModel,
@@ -218,7 +230,9 @@ TEMPORAL_MODEL_REGISTRY = Registry(
 )
 """Registry of temporal models classes."""
 
-PRIOR_REGISTRY = Registry([UniformPrior, GaussianPrior, MultiVariantePrior])
+PRIOR_REGISTRY = Registry(
+    [UniformPrior, GaussianPrior, MultiVariantePrior, UniformElsePrior]
+)
 """Registry of prior classes."""
 
 IRF_REGEISTRY = Registry([EffAreaIRFModel, ERecoIRFModel, IRFModels])

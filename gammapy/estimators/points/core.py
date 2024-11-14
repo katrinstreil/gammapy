@@ -557,7 +557,16 @@ class FluxPoints(FluxMaps):
         if "time" in flux.geom.axes_names:
             flux.geom.axes["time"].time_format = time_format
         ax = flux.plot(ax=ax, **kwargs)
-        ax.set_ylabel(f"{sed_type} [{ax.yaxis.units.to_string(UNIT_STRING_FORMAT)}]")
+        if sed_type == "dnde":
+            sed_type = "dN/dE"
+        if energy_power > 0:
+            ax.set_ylabel(
+                f"E$^{{{energy_power}}}$ {sed_type} [{ax.yaxis.units.to_string(UNIT_STRING_FORMAT)}]"
+            )
+        else:
+            ax.set_ylabel(
+                f"{sed_type} [{ax.yaxis.units.to_string(UNIT_STRING_FORMAT)}]"
+            )
         ax.set_yscale("log")
         return ax
 

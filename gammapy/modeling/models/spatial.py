@@ -1339,7 +1339,7 @@ class TemplateSpatialModel(SpatialModel):
 
         if map.unit.is_equivalent(""):
             map = map.copy(data=map.data, unit="sr-1")
-            log.warning("Missing spatial template unit, assuming sr^-1")
+            # log.warning("Missing spatial template unit, assuming sr^-1")
 
         if copy_data:
             self._map = map.copy()
